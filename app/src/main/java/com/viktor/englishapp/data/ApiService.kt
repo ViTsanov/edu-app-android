@@ -8,6 +8,14 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 
+data class UserProfile(
+    val id: Int,
+    val email: String,
+    val full_name: String,
+    val role: String,
+    val is_active: Boolean
+)
+
 interface ApiService {
 
     // 1. Маршрутът за ВХОД (Login)
@@ -21,6 +29,7 @@ interface ApiService {
     // 2. Маршрутът за ПРОФИЛ (Вземане на данните на логнатия потребител)
     @GET("users/me")
     suspend fun getMyProfile(
-        @Header("Authorization") token: String // Тук слагаме пропуска (токенът)
-    ): UserResponse
+        // Тук слагаме ключа: "Bearer <token>"
+        @Header("Authorization") token: String
+    ): UserProfile
 }

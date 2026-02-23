@@ -58,6 +58,7 @@ dependencies {
     // Библиотеки за комуникация със сървъра (Retrofit)
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+    implementation("androidx.navigation:navigation-compose:2.9.7")
 
     // Библиотека за асинхронна работа (за да не забива екранът, докато чакаме сървъра)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
