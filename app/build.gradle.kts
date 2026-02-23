@@ -62,4 +62,5 @@ dependencies {
 
     // Библиотека за асинхронна работа (за да не забива екранът, докато чакаме сървъра)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("com.google.code.gson:gson:2.13.2")
 }

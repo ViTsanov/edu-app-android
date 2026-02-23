@@ -1,6 +1,8 @@
 package com.viktor.englishapp.ui // ПРОВЕРИ ПАКЕТА!
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,8 +14,9 @@ import com.viktor.englishapp.data.TokenManager // ПРОВЕРИ ПАКЕТА!
 import com.viktor.englishapp.data.UserProfile // ПРОВЕРИ ПАКЕТА!
 
 @Composable
-fun DashboardScreen(onLogout: () -> Unit) {
+fun DashboardScreen(onLogout: () -> Unit, onGoToExpert: () -> Unit, onGoToExercises: () -> Unit) {
     val context = LocalContext.current
+
     val tokenManager = remember { TokenManager(context) }
 
     // Тук пазим данните, след като ги изтеглим от сървъра
@@ -74,8 +77,36 @@ fun DashboardScreen(onLogout: () -> Unit) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            Button(
+                onClick = { onGoToExercises() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary // Син цвят за учене
+                )
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null) // Ако нямаш PlayArrow, използвай друг или махни иконата
+                Spacer(Modifier.width(8.dp))
+                Text("ЗАПОЧНИ УЧЕНЕ")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             Button(onClick = onLogout) {
                 Text("Изход")
+            }
+
+        }
+        // Ако потребителят е експерт, показваме бутона за AI
+        if (userProfile?.role == "expert") {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = { onGoToExpert() },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+            ) {
+                Text("⭐ Експертен панел (AI)")
             }
         }
     }
