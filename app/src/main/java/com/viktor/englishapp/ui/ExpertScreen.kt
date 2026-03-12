@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,13 +20,13 @@ import kotlinx.coroutines.launch
 fun ExpertScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope() // Дефинирано като 'scope'
     val scrollState = rememberScrollState()
 
     var selectedModule by remember { mutableStateOf("Grammar") }
     var selectedLevel by remember { mutableStateOf("A2") }
     var isLoading by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf("") }
+    var statusMessage by remember { mutableStateOf("") } // Дефинирано като 'statusMessage'
 
     val levels = listOf("A1", "A2", "B1", "B2", "C1", "C2")
     val modules = listOf("Grammar", "Vocabulary", "Reading")
@@ -37,7 +37,7 @@ fun ExpertScreen(onBack: () -> Unit) {
                 title = { Text("AI Генератор") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                     }
                 }
             )
@@ -48,7 +48,7 @@ fun ExpertScreen(onBack: () -> Unit) {
                 .padding(padding)
                 .fillMaxSize()
                 .padding(16.dp)
-                .verticalScroll(scrollState), // ДОБАВЕНО: За да можеш да скролваш до бутона
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Настройки на упражнението", style = MaterialTheme.typography.headlineSmall)
@@ -69,7 +69,7 @@ fun ExpertScreen(onBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ИЗБОР НА НИВО (Стабилната версия)
+            // ИЗБОР НА НИВО
             Text("Изберете Ниво:", style = MaterialTheme.typography.titleMedium)
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -86,7 +86,6 @@ fun ExpertScreen(onBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // БУТОНЪТ - Върнахме го на мястото му!
             if (isLoading) {
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(8.dp))
@@ -96,17 +95,19 @@ fun ExpertScreen(onBack: () -> Unit) {
                     onClick = {
                         isLoading = true
                         statusMessage = ""
-                        scope.launch {
+                        scope.launch { // КОРИГИРАНО: Използваме 'scope'
                             try {
                                 val token = tokenManager.getToken()
-                                RetrofitClient.instance.generateExercise(
-                                    module = selectedModule,
-                                    level = selectedLevel,
+
+                                val response = RetrofitClient.instance.generateExercise(
+                                    moduleId = 1,
+                                    levelId = 1,
                                     token = "Bearer $token"
                                 )
-                                statusMessage = "✅ Успех! Упражнението е готово."
+
+                                statusMessage = response.message // КОРИГИРАНО: Използваме 'statusMessage'
                             } catch (e: Exception) {
-                                statusMessage = "❌ Грешка: ${e.message}"
+                                statusMessage = "Грешка: ${e.message}" // КОРИГИРАНО: Използваме 'statusMessage'
                             } finally {
                                 isLoading = false
                             }

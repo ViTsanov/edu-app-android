@@ -11,9 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.viktor.englishapp.data.ExerciseResponse
+// ВАЖНА ПРОМЯНА: Вече импортираме от domain пакета!
+import com.viktor.englishapp.domain.ExerciseResponse
 import com.viktor.englishapp.data.RetrofitClient
 import com.viktor.englishapp.data.TokenManager
+import kotlinx.coroutines.launch // Нужно за корутините
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,15 +24,18 @@ fun ExerciseListScreen(onBack: () -> Unit, onExerciseClick: (ExerciseResponse) -
     val tokenManager = remember { TokenManager(context) }
     var exercises by remember { mutableStateOf<List<ExerciseResponse>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope() // За извикване на suspend функции
 
     LaunchedEffect(Unit) {
-        try {
-            val token = tokenManager.getToken()
-            exercises = RetrofitClient.instance.getExercises("Bearer $token")
-        } catch (e: Exception) {
-            // Тук може да добавим съобщение за грешка
-        } finally {
-            isLoading = false
+        coroutineScope.launch {
+            try {
+                val token = tokenManager.getToken()
+                exercises = RetrofitClient.instance.getExercises("Bearer $token")
+            } catch (e: Exception) {
+                // Обработка на грешка
+            } finally {
+                isLoading = false
+            }
         }
     }
 
@@ -52,12 +57,14 @@ fun ExerciseListScreen(onBack: () -> Unit, onExerciseClick: (ExerciseResponse) -
             }
         } else {
             LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize(),
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(exercises) { exercise ->
-                    ExerciseCard(exercise) { onExerciseClick(exercise) }
+                    ExerciseCard(exercise = exercise) { onExerciseClick(exercise) }
                 }
             }
         }
@@ -67,7 +74,9 @@ fun ExerciseListScreen(onBack: () -> Unit, onExerciseClick: (ExerciseResponse) -
 @Composable
 fun ExerciseCard(exercise: ExerciseResponse, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -78,7 +87,8 @@ fun ExerciseCard(exercise: ExerciseResponse, onClick: () -> Unit) {
                 shape = MaterialTheme.shapes.small
             ) {
                 Text(
-                    text = exercise.cefr_level,
+                    // ВАЖНА ПРОМЯНА: В базата вече пазим статуса, а не нивото (сменихме cefr_level със status)
+                    text = "Статус: ${exercise.status}",
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                     style = MaterialTheme.typography.labelSmall
                 )

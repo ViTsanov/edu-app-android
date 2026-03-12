@@ -1,65 +1,47 @@
 package com.viktor.englishapp.data
 
-import com.viktor.englishapp.domain.LoginResponse
-import com.viktor.englishapp.domain.UserResponse
-import retrofit2.http.Field
-import retrofit2.http.FormUrlEncoded
-import retrofit2.http.GET
-import retrofit2.http.Header
-import retrofit2.http.POST
-import retrofit2.http.Query
-
-data class UserProfile(
-    val id: Int,
-    val email: String,
-    val full_name: String,
-    val role: String,
-    val is_active: Boolean
-)
-
-data class ExerciseResponse(
-    val id: Int,
-    val title: String,
-    val content: String,
-    val cefr_level: String
-)
-
-data class Question(
-    val original: String,
-    val task: String
-)
-
-data class ExerciseContent(
-    val title: String,
-    val instructions: String,
-    val content: List<Question>,
-    val correct_answers: List<String>
-)
+import com.viktor.englishapp.domain.*
+import okhttp3.MultipartBody
+import retrofit2.http.*
 
 interface ApiService {
 
-    // 1. Маршрутът за ВХОД (Login)
+    // 1. ВХОД (Login)
     @FormUrlEncoded
     @POST("login")
     suspend fun login(
-        @Field("username") username: String, // FastAPI очаква 'username', дори да пращаме имейл
+        @Field("username") username: String,
         @Field("password") password: String
     ): LoginResponse
 
-    // 2. Маршрутът за ПРОФИЛ (Вземане на данните на логнатия потребител)
+    // 2. ПРОФИЛ
     @GET("users/me")
     suspend fun getMyProfile(
-        // Тук слагаме ключа: "Bearer <token>"
         @Header("Authorization") token: String
     ): UserProfile
 
+    // 3. ГЕНЕРИРАНЕ НА УПРАЖНЕНИЕ ОТ ЕКСПЕРТ
+    // Променихме параметрите на Int, защото в базата вече ползваме ID-та за нива и модули
     @POST("expert/generate-exercise")
     suspend fun generateExercise(
-        @Query("module") module: String,
-        @Query("level") level: String,
+        @Query("module_id") moduleId: Int,
+        @Query("level_id") levelId: Int,
         @Header("Authorization") token: String
-    ): Any
+    ): ExerciseGenerationResponse
 
+    // 4. СПИСЪК С УПРАЖНЕНИЯ
     @GET("exercises")
-    suspend fun getExercises(@Header("Authorization") token: String): List<ExerciseResponse>
+    suspend fun getExercises(
+        @Header("Authorization") token: String
+    ): List<ExerciseResponse>
+
+    // 5. НОВО: ИЗПРАЩАНЕ НА АУДИО ЗА AI ОЦЕНКА 🎙️🤖
+    // @Multipart казва на Android, че няма да пращаме прост текст, а същински файл (chunks of binary data)
+    @Multipart
+    @POST("exercises/{exercise_id}/submit-audio")
+    suspend fun submitAudioExercise(
+        @Path("exercise_id") exerciseId: Int, // Замества {exercise_id} в URL-то
+        @Part file: MultipartBody.Part,       // Самият аудио файл (.wav / .m4a)
+        @Header("Authorization") token: String
+    ): AudioSubmitResponse
 }

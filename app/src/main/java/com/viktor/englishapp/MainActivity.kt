@@ -78,24 +78,30 @@ class MainActivity : ComponentActivity() {
                             ExerciseListScreen(
                                 onBack = { navController.popBackStack() },
                                 onExerciseClick = { exercise ->
-                                    // 1. Кодираме JSON текста, за да е безопасен за навигацията
-                                    val encodedJson = java.net.URLEncoder.encode(exercise.content, "UTF-8")
+                                    // 1. Кодираме JSON текста (вече се казва content_prompt)
+                                    val encodedJson = java.net.URLEncoder.encode(exercise.content_prompt, "UTF-8")
+                                    val exerciseId = exercise.id
 
-                                    // 2. Предаваме кодирания текст
-                                    navController.navigate("solve_exercise/$encodedJson")
+                                    // 2. Предаваме ID-то и кодирания текст
+                                    navController.navigate("solve_exercise/$exerciseId/$encodedJson")
                                 }
                             )
                         }
                         composable(
-                            route = "solve_exercise/{json}",
-                            arguments = listOf(navArgument("json") { type = NavType.StringType })
+                            // Вече очакваме и ID, и JSON
+                            route = "solve_exercise/{id}/{json}",
+                            arguments = listOf(
+                                navArgument("id") { type = NavType.IntType },
+                                navArgument("json") { type = NavType.StringType }
+                            )
                         ) { backStackEntry ->
+                            val exerciseId = backStackEntry.arguments?.getInt("id") ?: 0
                             val encodedJson = backStackEntry.arguments?.getString("json") ?: ""
 
-                            // Декодираме го обратно към оригинален JSON
                             val decodedJson = java.net.URLDecoder.decode(encodedJson, "UTF-8")
 
                             SolveExerciseScreen(
+                                exerciseId = exerciseId, // Подаваме ID-то на екрана!
                                 exerciseJson = decodedJson,
                                 onBack = { navController.popBackStack() }
                             )

@@ -1,4 +1,4 @@
-package com.viktor.englishapp.ui // ПРОВЕРИ ПАКЕТА!
+package com.viktor.englishapp.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -8,10 +8,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.viktor.englishapp.data.RetrofitClient // ПРОВЕРИ ПАКЕТА!
-import com.viktor.englishapp.data.TokenManager // ПРОВЕРИ ПАКЕТА!
-import com.viktor.englishapp.data.UserProfile // ПРОВЕРИ ПАКЕТА!
+import com.viktor.englishapp.data.RetrofitClient
+import com.viktor.englishapp.data.TokenManager
+// 1. ВАЖНА ПРОМЯНА: Вече импортираме UserProfile от новия пакет 'domain'
+import com.viktor.englishapp.domain.UserProfile
 
 @Composable
 fun DashboardScreen(onLogout: () -> Unit, onGoToExpert: () -> Unit, onGoToExercises: () -> Unit) {
@@ -19,17 +21,14 @@ fun DashboardScreen(onLogout: () -> Unit, onGoToExpert: () -> Unit, onGoToExerci
 
     val tokenManager = remember { TokenManager(context) }
 
-    // Тук пазим данните, след като ги изтеглим от сървъра
     var userProfile by remember { mutableStateOf<UserProfile?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf("") }
 
-    // ТОВА Е МАГИЯТА: Изпълнява се автоматично при отваряне на екрана
     LaunchedEffect(Unit) {
         val token = tokenManager.getToken()
         if (token != null) {
             try {
-                // ВАЖНО: Сървърът очаква токенът да започва с думата "Bearer "
                 val profile = RetrofitClient.instance.getMyProfile("Bearer $token")
                 userProfile = profile
             } catch (e: Exception) {
@@ -48,9 +47,8 @@ fun DashboardScreen(onLogout: () -> Unit, onGoToExpert: () -> Unit, onGoToExerci
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Логика за показване на екрана в зависимост от състоянието:
         if (isLoading) {
-            CircularProgressIndicator() // Въртящо се кръгче
+            CircularProgressIndicator()
             Spacer(modifier = Modifier.height(16.dp))
             Text("Зареждане на профила...")
 
@@ -60,20 +58,30 @@ fun DashboardScreen(onLogout: () -> Unit, onGoToExpert: () -> Unit, onGoToExerci
             Button(onClick = onLogout) { Text("Обратно към Вход") }
 
         } else {
-            // УСПЕХ! Имаме данните и показваме истинското име!
+            // 2. ВАЖНА ПРОМЯНА: Сменихме 'full_name' с 'username' според новия модел
             Text(
-                text = "Здравей, ${userProfile?.full_name}! 👋",
+                text = "Здравей, ${userProfile?.username}! 👋",
                 style = MaterialTheme.typography.headlineMedium
             )
             Text(
                 text = "Имейл: ${userProfile?.email}",
                 style = MaterialTheme.typography.bodyLarge
             )
-            Text(
-                text = "Роля: ${userProfile?.role}",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
+
+            // 3. НОВО: Красива визуализация на точките (XP)!
+            Spacer(modifier = Modifier.height(12.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text(
+                    text = "Точки: ${userProfile?.total_xp} XP 🏆",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -83,10 +91,10 @@ fun DashboardScreen(onLogout: () -> Unit, onGoToExpert: () -> Unit, onGoToExerci
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary // Син цвят за учене
+                    containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null) // Ако нямаш PlayArrow, използвай друг или махни иконата
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("ЗАПОЧНИ УЧЕНЕ")
             }
@@ -98,8 +106,11 @@ fun DashboardScreen(onLogout: () -> Unit, onGoToExpert: () -> Unit, onGoToExerci
             }
 
         }
-        // Ако потребителят е експерт, показваме бутона за AI
-        if (userProfile?.role == "expert") {
+
+        // 4. ВАЖНА ПРОМЯНА: Вече проверяваме ролята по ID, а не по текст "expert".
+        // ВНИМАНИЕ: Сложил съм числото 3 като пример. Ако в твоята база данни Експертът
+        // има ID = 2 или 4, просто промени цифрата тук!
+        if (userProfile?.role_id == 3) {
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
