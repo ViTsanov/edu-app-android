@@ -35,6 +35,19 @@ interface ApiService {
         @Header("Authorization") token: String
     ): List<ExerciseResponse>
 
+    // 6. СПИСЪК С ЧАКАЩИ УПРАЖНЕНИЯ (Само за експерти)
+    @GET("expert/pending")
+    suspend fun getPendingExercises(
+        @Header("Authorization") token: String
+    ): List<ExerciseResponse>
+
+    // 7. ОДОБРЯВАНЕ НА УПРАЖНЕНИЕ
+    @PUT("expert/approve/{exercise_id}")
+    suspend fun approveExercise(
+        @Path("exercise_id") exerciseId: Int,
+        @Header("Authorization") token: String
+    ): ApproveResponse
+
     // 5. НОВО: ИЗПРАЩАНЕ НА АУДИО ЗА AI ОЦЕНКА 🎙️🤖
     // @Multipart казва на Android, че няма да пращаме прост текст, а същински файл (chunks of binary data)
     @Multipart
@@ -44,4 +57,11 @@ interface ApiService {
         @Part file: MultipartBody.Part,       // Самият аудио файл (.wav / .m4a)
         @Header("Authorization") token: String
     ): AudioSubmitResponse
+
+    // 8. ДИНАМИЧНИ МОДУЛИ И НИВА
+    @GET("modules")
+    suspend fun getModules(): List<CategoryItem>
+
+    @GET("levels")
+    suspend fun getLevels(): List<CategoryItem>
 }

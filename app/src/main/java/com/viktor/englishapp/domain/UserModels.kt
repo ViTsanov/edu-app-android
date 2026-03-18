@@ -35,7 +35,8 @@ data class AudioEvaluationData(
     val strengths: String,
     val weaknesses: String,
     val explanation: String,
-    val transcribed_text: String
+    val transcribed_text: String,
+    val pronunciation_tips: String
 )
 
 data class AudioSubmitResponse(
@@ -44,14 +45,20 @@ data class AudioSubmitResponse(
     val data: AudioEvaluationData
 )
 
-data class Question(
-    val original: String,
-    val task: String
-)
-
 data class ExerciseContent(
     val title: String,
     val instructions: String,
-    val content: List<Question>,
+    val is_speaking: Boolean = false,
+    val content: List<String>, // 🟢 НОВО: Вече очакваме просто списък с текстове (изреченията)
     val correct_answers: List<String>
+)
+
+data class ApproveResponse(
+    val status: String,
+    val message: String
+)
+
+data class CategoryItem(
+    val id: Int,
+    val name: String
 )

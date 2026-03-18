@@ -19,6 +19,7 @@ import com.viktor.englishapp.ui.SolveExerciseScreen
 import com.viktor.englishapp.ui.theme.EnglishLearningAppTheme // ПРОВЕРИ ТЕМАТА!
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.viktor.englishapp.ui.PendingExercisesScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +70,14 @@ class MainActivity : ComponentActivity() {
                         // --- ЕКРАН 3: ЕКСПЕРТЕН ПАНЕЛ ---
                         composable("expert_panel") {
                             ExpertScreen(
+                                onBack = { navController.popBackStack() },
+                                onNavigateToPending = { navController.navigate("pending_exercises")}
+                            )
+                        }
+
+                        // 🟢 НОВО: Маршрутът за екрана за одобряване
+                        composable("pending_exercises") {
+                            PendingExercisesScreen(
                                 onBack = { navController.popBackStack() }
                             )
                         }

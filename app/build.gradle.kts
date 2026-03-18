@@ -60,6 +60,8 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
     implementation("androidx.navigation:navigation-compose:2.9.7")
 
+    implementation("androidx.compose.material:material-icons-extended")
+
     // Библиотека за асинхронна работа (за да не забива екранът, докато чакаме сървъра)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.google.code.gson:gson:2.13.2")
