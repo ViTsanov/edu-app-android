@@ -12,7 +12,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,16 +36,16 @@ fun SolveExerciseScreen(
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
-    // Инициализираме четеца на текст
+
     val tts = remember { mutableStateOf<android.speech.tts.TextToSpeech?>(null) }
     DisposableEffect(Unit) {
         val textToSpeech = android.speech.tts.TextToSpeech(context) { status ->
             if (status == android.speech.tts.TextToSpeech.SUCCESS) {
-                tts.value?.language = java.util.Locale.US // Настройваме го на Американски Английски
+                tts.value?.language = java.util.Locale.US
             }
         }
         tts.value = textToSpeech
-        onDispose { textToSpeech.shutdown() } // Спираме го, когато излезем от екрана
+        onDispose { textToSpeech.shutdown() }
     }
 
     var hasMicPermission by remember {
@@ -81,6 +80,9 @@ fun SolveExerciseScreen(
         return
     }
 
+    val safeContent = exercise.content ?: emptyList()
+    val safeAnswers = exercise.correct_answers ?: emptyList()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -100,16 +102,15 @@ fun SolveExerciseScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Text(text = exercise.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(text = exercise.title ?: "Без заглавие", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = exercise.instructions, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.secondary)
+            Text(text = exercise.instructions ?: "Няма инструкции", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.secondary)
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 🟢 ЕТО ГО РАЗДЕЛЕНИЕТО: ГОВОРЕНЕ ИЛИ ПИСАНЕ
             if (exercise.is_speaking) {
 
-                // === ИЗГЛЕД ЗА ГОВОРЕНЕ (МИКРОФОН) ===
-                exercise.content.forEachIndexed { index, questionText ->
+                // === ИЗГЛЕД ЗА ГОВОРЕНЕ ===
+                safeContent.forEachIndexed { index, questionText ->
                     Text(text = "${index + 1}. $questionText", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(12.dp))
                 }
@@ -139,7 +140,7 @@ fun SolveExerciseScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (!viewModel.isRecording && !viewModel.isUploading && viewModel.evaluationResult == null) {
+                if (!viewModel.isRecording && !viewModel.isUploading && viewModel.audioEvaluationResult == null) {
                     Button(
                         onClick = { val token = tokenManager.getToken(); if (token != null) viewModel.submitAudio(exerciseId, token) },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -155,7 +156,8 @@ fun SolveExerciseScreen(
                     }
                 }
 
-                viewModel.evaluationResult?.let { result ->
+                // 🟢 ПОКАЗВАНЕ НА АУДИО РЕЗУЛТАТИТЕ
+                viewModel.audioEvaluationResult?.let { result ->
                     Spacer(modifier = Modifier.height(32.dp))
                     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -165,16 +167,15 @@ fun SolveExerciseScreen(
                             Text("Гладкост: ${result.fluency_score}/100", style = MaterialTheme.typography.titleMedium, color = Color(0xFF1565C0))
 
                             Spacer(modifier = Modifier.height(16.dp))
-                            // 🟢 НОВОТО: Текст + Бутон за слушане
                             Text("Как да го произнесеш по-добре:", fontWeight = FontWeight.Bold, color = Color(0xFFE65100))
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 Text(
-                                    text = result.pronunciation_tips,
+                                    text = result.pronunciation_tips ?: "",
                                     modifier = Modifier.weight(1f)
                                 )
                                 IconButton(
                                     onClick = {
-                                        tts.value?.speak(result.pronunciation_tips, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, null)
+                                        tts.value?.speak(result.pronunciation_tips ?: "", android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, null)
                                     }
                                 ) {
                                     Icon(
@@ -187,55 +188,114 @@ fun SolveExerciseScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
                             Text("Силни страни:", fontWeight = FontWeight.Bold)
-                            Text(result.strengths)
+                            Text(result.strengths ?: "")
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("Слаби страни:", fontWeight = FontWeight.Bold, color = Color.Red)
-                            Text(result.weaknesses)
+                            Text(result.weaknesses ?: "")
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("Обяснение:", fontWeight = FontWeight.Bold)
-                            Text(result.explanation)
-
-                            Spacer(modifier = Modifier.height(16.dp))
-                            HorizontalDivider()
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Това, което AI чу:", style = MaterialTheme.typography.labelMedium)
-                            Text(result.transcribed_text, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                            Text(result.explanation ?: "")
                         }
                     }
                 }
 
             } else {
-                // === ИЗГЛЕД ЗА ПИСАНЕ (ТЕКСТОВИ ПОЛЕТА) ===
-                val userAnswers = remember { mutableStateListOf(*Array(exercise.content.size) { "" }) }
-                var showResults by remember { mutableStateOf(false) }
+                // === ИЗГЛЕД ЗА ПИСАНЕ ===
+                val userAnswers = remember { mutableStateListOf(*Array(safeContent.size) { "" }) }
 
-                exercise.content.forEachIndexed { index, questionText ->
-                    Text(text = "${index + 1}. $questionText", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
+                if (safeContent.isEmpty()) {
+                    Text("AI не е генерирал въпроси за това упражнение.", color = Color.Red)
+                } else {
+                    safeContent.forEachIndexed { index, questionText ->
+                        Text(text = "${index + 1}. $questionText", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    OutlinedTextField(
-                        value = userAnswers[index],
-                        onValueChange = { userAnswers[index] = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Твоят отговор") },
-                        enabled = !showResults
-                    )
+                        val isCorrect = viewModel.textEvaluationResult?.is_correct_array?.getOrNull(index)
 
-                    if (showResults) {
-                        Text(
-                            text = "Правилен отговор: ${exercise.correct_answers[index]}",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.bodyMedium
+                        OutlinedTextField(
+                            value = userAnswers[index],
+                            onValueChange = { userAnswers[index] = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Твоят отговор") },
+                            enabled = viewModel.textEvaluationResult == null && !viewModel.isEvaluatingText,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = if (isCorrect == true) Color(0xFF16A34A) else if (isCorrect == false) Color.Red else Color.Black,
+                                disabledBorderColor = if (isCorrect == true) Color(0xFF16A34A) else if (isCorrect == false) Color.Red else Color.Gray
+                            )
                         )
+
+                        if (isCorrect == false) {
+                            Text(
+                                text = "Правилен отговор: ${safeAnswers.getOrNull(index) ?: ""}",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (viewModel.textEvaluationResult == null) {
+                        Button(
+                            onClick = {
+                                val token = tokenManager.getToken()
+                                if (token != null) {
+                                    viewModel.submitTextExercise(
+                                        exerciseId = exerciseId,
+                                        questions = safeContent,
+                                        expectedAnswers = safeAnswers,
+                                        userAnswers = userAnswers.toList(),
+                                        token = token
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            enabled = !viewModel.isEvaluatingText
+                        ) {
+                            if (viewModel.isEvaluatingText) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                            } else {
+                                Text("ПРОВЕРИ ОТГОВОРИТЕ С AI")
+                            }
+                        }
+                    }
                 }
 
-                Button(
-                    onClick = { if (showResults) onBack() else showResults = true },
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                ) {
-                    Text(if (showResults) "ЗАТВОРИ" else "ПРОВЕРИ ОТГОВОРИТЕ")
+                // 🟢 ПОКАЗВАНЕ НА ТЕКСТОВИТЕ РЕЗУЛТАТИ
+                viewModel.textEvaluationResult?.let { result ->
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+
+                            result.xp_earned?.let { xp ->
+                                Surface(color = Color(0xFFFEF3C7), shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = "+$xp Точки (XP) добавени към профила ти!",
+                                        color = Color(0xFFD97706),
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(12.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+
+                            Text("Резултати и Оценка от AI", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Оценка: ${result.grammar_score}/100", style = MaterialTheme.typography.titleMedium, color = Color(0xFF2E7D32))
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Силни страни:", fontWeight = FontWeight.Bold, color = Color(0xFF1565C0))
+                            Text(result.strengths ?: "")
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Къде да внимаваш:", fontWeight = FontWeight.Bold, color = Color.Red)
+                            Text(result.weaknesses ?: "")
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Подробно обяснение от учителя:", fontWeight = FontWeight.Bold)
+                            Text(result.explanation ?: "")
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))

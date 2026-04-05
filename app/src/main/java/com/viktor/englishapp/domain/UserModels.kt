@@ -46,11 +46,11 @@ data class AudioSubmitResponse(
 )
 
 data class ExerciseContent(
-    val title: String,
-    val instructions: String,
+    val title: String?,
+    val instructions: String?,
     val is_speaking: Boolean = false,
-    val content: List<String>, // 🟢 НОВО: Вече очакваме просто списък с текстове (изреченията)
-    val correct_answers: List<String>
+    val content: List<String>?, // 🟢 НОВО: Вече очакваме просто списък с текстове (изреченията)
+    val correct_answers: List<String>?
 )
 
 data class ApproveResponse(
@@ -61,4 +61,37 @@ data class ApproveResponse(
 data class CategoryItem(
     val id: Int,
     val name: String
+)
+
+data class ExerciseUpdateRequest(
+    val content_prompt: String
+)
+
+data class UserCreate(
+    val email: String,
+    val username: String,
+    val password: String,
+    val full_name: String = "", // Изпращаме го празно, ако не го ползваме активно
+    val role_id: Int = 1 // 1 означава Ученик по подразбиране
+)
+
+data class TextSubmissionRequest(
+    val questions: List<String>,
+    val expected_answers: List<String>,
+    val user_answers: List<String>
+)
+
+// Този клас описва какво ни връща AI за текстовото упражнение
+data class EvaluationResult(
+    val grammar_score: Int,
+    val strengths: String?,
+    val weaknesses: String?,
+    val explanation: String?,
+    val is_correct_array: List<Boolean>?, // Списък с true/false за всеки въпрос
+    val xp_earned: Int?                   // Спечелените точки
+)
+
+data class EvaluationResponse(
+    val status: String,
+    val data: EvaluationResult
 )

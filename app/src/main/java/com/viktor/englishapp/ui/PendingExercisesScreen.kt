@@ -19,6 +19,7 @@ import com.viktor.englishapp.domain.ExerciseResponse
 @Composable
 fun PendingExercisesScreen(
     onBack: () -> Unit,
+    onEditExercise: (Int, String, String) -> Unit,
     viewModel: PendingExercisesViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -70,6 +71,13 @@ fun PendingExercisesScreen(
                             exercise = exercise,
                             onApprove = {
                                 if (token != null) viewModel.approveExercise(token, exercise.id)
+                            },
+                            onEdit = {
+                                onEditExercise(exercise.id, exercise.title, exercise.content_prompt)
+                            },
+                            // 🔴 НОВО: Добавена е логиката за натискане на бутона "Откажи"
+                            onReject = {
+                                if (token != null) viewModel.rejectExercise(token, exercise.id)
                             }
                         )
                     }
@@ -81,10 +89,12 @@ fun PendingExercisesScreen(
 
 // Отделен компонент (Card) за едно упражнение
 @Composable
-fun PendingExerciseCard(exercise: ExerciseResponse, onApprove: () -> Unit) {
-    // 🟢 НОВО: Пазим състояние дали картата е разгъната или не
-    var expanded by remember { mutableStateOf(false) }
-
+fun PendingExerciseCard(
+    exercise: ExerciseResponse,
+    onApprove: () -> Unit,
+    onEdit: () -> Unit,
+    onReject: () -> Unit // 🔴 НОВО: Приемаме функция за изтриване/отказ
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -94,60 +104,35 @@ fun PendingExerciseCard(exercise: ExerciseResponse, onApprove: () -> Unit) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = "Статус: ${exercise.status}", color = MaterialTheme.colorScheme.primary)
 
-            // 🟢 НОВО: Ако е разгънато, показваме съдържанието на упражнението
-            if (expanded) {
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Опитваме се да разопаковаме JSON-а
-                val parsedExercise = try {
-                    var cleanJson = exercise.content_prompt.trim()
-                    if (cleanJson.startsWith("```json")) {
-                        cleanJson = cleanJson.substringAfter("```json").substringBeforeLast("```").trim()
-                    } else if (cleanJson.startsWith("```")) {
-                        cleanJson = cleanJson.substringAfter("```").substringBeforeLast("```").trim()
-                    }
-                    com.google.gson.Gson().fromJson(cleanJson, com.viktor.englishapp.domain.ExerciseContent::class.java)
-                } catch (e: Exception) { null }
-
-                if (parsedExercise != null) {
-                    Text(text = "Инструкции:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
-                    Text(text = parsedExercise.instructions, style = MaterialTheme.typography.bodyMedium)
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(text = "Въпроси:", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
-                    parsedExercise.content.forEachIndexed { idx, qText ->
-                        Text(text = "${idx + 1}. $qText", style = MaterialTheme.typography.bodySmall)
-                    }
-                } else {
-                    // В случай, че AI е върнал много странен формат, показваме го суров, за да видим къде е грешката
-                    Text(text = exercise.content_prompt, style = MaterialTheme.typography.bodySmall)
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 🟢 НОВО: Слагаме два бутона един до друг (Row)
+            // 🔴 НОВО: Вече имаме 3 бутона, разделени поравно
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Бутон за преглед
+                // 1. Бутон за отказ (червен)
                 OutlinedButton(
-                    onClick = { expanded = !expanded },
-                    modifier = Modifier.weight(1f)
+                    onClick = onReject,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(if (expanded) "Скрий съдържанието" else "Преглед")
+                    Text("Откажи")
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
-                // Бутон за одобряване
+                // 2. Бутон за редакция
+                OutlinedButton(
+                    onClick = onEdit,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Редакция")
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // 3. Бутон за одобряване
                 Button(
                     onClick = onApprove,
                     modifier = Modifier.weight(1f),
@@ -159,4 +144,3 @@ fun PendingExerciseCard(exercise: ExerciseResponse, onApprove: () -> Unit) {
         }
     }
 }
-

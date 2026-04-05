@@ -2,10 +2,21 @@ package com.viktor.englishapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+// 🔵 ОСНОВНИ ЦВЕТОВЕ (Primary) - Доверие, професионализъм (Royal Blue)
+val PrimaryBlue = Color(0xFF2563EB)
+val OnPrimary = Color(0xFFFFFFFF)
+val PrimaryContainer = Color(0xFFDBEAFE)
+val OnPrimaryContainer = Color(0xFF1E3A8A)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// 🟠 ВТОРИЧНИ ЦВЕТОВЕ (Secondary) - Енергия, акценти (Vibrant Amber)
+val SecondaryOrange = Color(0xFFF59E0B)
+val OnSecondary = Color(0xFFFFFFFF)
+val SecondaryContainer = Color(0xFFFEF3C7)
+
+// ⚪ ФОН И ПОВЪРХНОСТИ (Background & Surface)
+val BackgroundLight = Color(0xFFF8FAFC) // Много меко, светло сиво (не напряга очите)
+val SurfaceWhite = Color(0xFFFFFFFF)    // Снежно бяло за картите
+
+// 🔴 ГРЕШКИ И УСПЕХ (Error & Success)
+val ErrorRed = Color(0xFFDC2626)
+val SuccessGreen = Color(0xFF16A34A)

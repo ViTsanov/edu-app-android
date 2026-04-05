@@ -64,4 +64,28 @@ interface ApiService {
 
     @GET("levels")
     suspend fun getLevels(): List<CategoryItem>
+
+    @PUT("expert/edit/{exercise_id}")
+    suspend fun editExercise(
+        @Path("exercise_id") exerciseId: Int,
+        @Body request: ExerciseUpdateRequest,
+        @Header("Authorization") token: String
+    ): ApproveResponse
+
+    @DELETE("expert/reject/{exercise_id}")
+    suspend fun rejectExercise(
+        @Path("exercise_id") exerciseId: Int,
+        @Header("Authorization") token: String
+    ): ApproveResponse // Можем да преизползваме този модел, тъй като сървърът връща същия формат {"status": "...", "message": "..."}
+
+    // Регистрация на нов потребител
+    @POST("users/")
+    suspend fun register(@Body request: UserCreate): UserProfile
+
+    @POST("exercises/{exercise_id}/submit-text")
+    suspend fun submitTextExercise(
+        @Path("exercise_id") exerciseId: Int,
+        @Body request: TextSubmissionRequest,
+        @Header("Authorization") token: String
+    ): EvaluationResponse // (Използвай същия Response модел като при аудиото)
 }

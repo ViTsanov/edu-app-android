@@ -10,6 +10,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.viktor.englishapp.data.RetrofitClient
 import com.viktor.englishapp.domain.AudioEvaluationData
+import com.viktor.englishapp.domain.EvaluationResult
+import com.viktor.englishapp.domain.TextSubmissionRequest
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -21,21 +23,24 @@ class SolveExerciseViewModel : ViewModel() {
     // Състояния за UI-а
     var isRecording by mutableStateOf(false)
     var isUploading by mutableStateOf(false)
-    var evaluationResult by mutableStateOf<AudioEvaluationData?>(null)
+    var isEvaluatingText by mutableStateOf(false)
+
+    // 🟢 РАЗДЕЛЯМЕ РЕЗУЛТАТИТЕ, ЗА ДА НЯМА КОНФЛИКТ
+    var audioEvaluationResult by mutableStateOf<AudioEvaluationData?>(null)
+    var textEvaluationResult by mutableStateOf<EvaluationResult?>(null)
+
     var errorMessage by mutableStateOf("")
 
     private var mediaRecorder: MediaRecorder? = null
     private var audioFile: File? = null
 
-    // 1. СТАРТИРАНЕ НА ЗАПИСА
+    // === АУДИО ЛОГИКА ===
     fun startRecording(context: Context) {
         errorMessage = ""
-        evaluationResult = null
+        audioEvaluationResult = null
         try {
-            // Създаваме временен файл в кеша на телефона (.m4a формат е много добър за глас)
             audioFile = File(context.cacheDir, "exercise_audio.m4a")
 
-            // Android 12+ изисква context при създаване на MediaRecorder
             mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 MediaRecorder(context)
             } else {
@@ -56,7 +61,6 @@ class SolveExerciseViewModel : ViewModel() {
         }
     }
 
-    // 2. СПИРАНЕ НА ЗАПИСА
     fun stopRecording() {
         try {
             mediaRecorder?.apply {
@@ -70,7 +74,6 @@ class SolveExerciseViewModel : ViewModel() {
         }
     }
 
-    // 3. ИЗПРАЩАНЕ КЪМ AI БЕКЕНДА
     fun submitAudio(exerciseId: Int, token: String) {
         val file = audioFile
         if (file == null || !file.exists()) {
@@ -81,7 +84,6 @@ class SolveExerciseViewModel : ViewModel() {
         isUploading = true
         errorMessage = ""
 
-        // Подготвяме файла за изпращане по интернет (Multipart)
         val requestFile = file.asRequestBody("audio/mp4".toMediaTypeOrNull())
         val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
 
@@ -92,8 +94,7 @@ class SolveExerciseViewModel : ViewModel() {
                     file = body,
                     token = "Bearer $token"
                 )
-                // Запазваме резултата от AI-то, за да го покажем на екрана!
-                evaluationResult = response.data
+                audioEvaluationResult = response.data
             } catch (e: Exception) {
                 errorMessage = "Грешка при оценяване: ${e.message}"
             } finally {
@@ -101,5 +102,37 @@ class SolveExerciseViewModel : ViewModel() {
             }
         }
     }
-}
 
+    // === ТЕКСТОВА ЛОГИКА ===
+    fun submitTextExercise(
+        exerciseId: Int,
+        questions: List<String>,
+        expectedAnswers: List<String>,
+        userAnswers: List<String>,
+        token: String
+    ) {
+        viewModelScope.launch {
+            isEvaluatingText = true
+            try {
+                val request = TextSubmissionRequest(
+                    questions = questions,
+                    expected_answers = expectedAnswers,
+                    user_answers = userAnswers
+                )
+                val response = RetrofitClient.instance.submitTextExercise(
+                    exerciseId = exerciseId,
+                    request = request,
+                    token = "Bearer $token"
+                )
+
+                if (response.status == "success") {
+                    textEvaluationResult = response.data
+                }
+            } catch (e: Exception) {
+                errorMessage = "Грешка: ${e.message}"
+            } finally {
+                isEvaluatingText = false
+            }
+        }
+    }
+}

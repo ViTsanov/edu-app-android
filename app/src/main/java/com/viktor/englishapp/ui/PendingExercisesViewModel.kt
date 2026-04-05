@@ -46,4 +46,16 @@ class PendingExercisesViewModel : ViewModel() {
             }
         }
     }
+
+    fun rejectExercise(token: String, exerciseId: Int) {
+        viewModelScope.launch {
+            try {
+                RetrofitClient.instance.rejectExercise(exerciseId, "Bearer $token")
+                // Премахваме упражнението от списъка веднага, за да изчезне от екрана
+                pendingExercises.removeIf { it.id == exerciseId }
+            } catch (e: Exception) {
+                errorMessage = "Грешка при отхвърляне: ${e.message}"
+            }
+        }
+    }
 }
