@@ -35,6 +35,11 @@ interface ApiService {
         @Header("Authorization") token: String
     ): List<ExerciseResponse>
 
+    @GET("exercises/my-path")
+    suspend fun getMyPath(
+        @Header("Authorization") token: String
+    ): List<StudentPathItem>
+
     // 6. СПИСЪК С ЧАКАЩИ УПРАЖНЕНИЯ (Само за експерти)
     @GET("expert/pending")
     suspend fun getPendingExercises(

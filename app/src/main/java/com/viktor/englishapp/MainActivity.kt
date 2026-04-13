@@ -20,6 +20,7 @@ import com.viktor.englishapp.ui.theme.EnglishLearningAppTheme // ПРОВЕРИ 
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.viktor.englishapp.ui.PendingExercisesScreen
+import com.viktor.englishapp.ui.ProfileScreen
 
 
 class MainActivity : ComponentActivity() {
@@ -81,16 +82,26 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("dashboard") { inclusive = true }
                                     }
                                 },
+                                // 🟢 ЕТО ГО РЕШЕНИЕТО НА ГРЕШКАТА:
+                                onGoToProfile = {
+                                    navController.navigate("profile")
+                                },
                                 onGoToExpert = {
                                     navController.navigate("pending_exercises")
                                 },
-                                // 🟢 НОВО: Добавяме командата, която отваря екрана с активните упражнения
                                 onGoToExpertActive = {
                                     navController.navigate("expert_active_exercises")
                                 },
                                 onGoToExercises = {
                                     navController.navigate("exercise_list")
                                 }
+                            )
+                        }
+
+                        // 🟢 ЕТО ГО НОВИЯТ МАРШРУТ ЗА ПРОФИЛА:
+                        composable("profile") {
+                            com.viktor.englishapp.ui.ProfileScreen(
+                                onBack = { navController.popBackStack() }
                             )
                         }
 

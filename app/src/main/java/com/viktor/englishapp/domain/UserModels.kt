@@ -8,10 +8,14 @@ data class LoginResponse(
 
 data class UserProfile(
     val id: Int,
-    val username: String, // FastAPI схемата ни ползва username и email
+    val username: String,
     val email: String,
     val role_id: Int,
-    val total_xp: Int // Вече имаме точки!
+    val total_xp: Int,
+    // 🟢 НОВИТЕ ПОЛЕТА ОТ БЕКЕНДА (Слагаме им default стойности, за да не гърми, ако липсват)
+    val english_level: String? = "A1",
+    val profile_picture: String? = null,
+    val teacher_verification_status: String? = "none"
 )
 
 // --- EXERCISES ---
@@ -94,4 +98,12 @@ data class EvaluationResult(
 data class EvaluationResponse(
     val status: String,
     val data: EvaluationResult
+)
+
+data class StudentPathItem(
+    val id: Int,
+    val title: String,
+    val content_prompt: String,
+    val status: String, // "AVAILABLE", "COMPLETED", "RETRY"
+    val best_score: Int?
 )
