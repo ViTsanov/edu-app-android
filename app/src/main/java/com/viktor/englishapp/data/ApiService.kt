@@ -3,6 +3,8 @@ package com.viktor.englishapp.data
 import com.viktor.englishapp.domain.*
 import okhttp3.MultipartBody
 import retrofit2.http.*
+import com.viktor.englishapp.domain.ClassroomItem
+import com.viktor.englishapp.domain.ClassroomStudent
 
 interface ApiService {
 
@@ -93,4 +95,142 @@ interface ApiService {
         @Body request: TextSubmissionRequest,
         @Header("Authorization") token: String
     ): EvaluationResponse // (Използвай същия Response модел като при аудиото)
+
+    @POST("teacher/classrooms")
+    suspend fun createClassroom(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Map<String, Any>
+
+    @GET("teacher/classrooms")
+    suspend fun getTeacherClassrooms(
+        @Header("Authorization") token: String
+    ): List<ClassroomItem>    // from ClassroomManagementScreen.kt
+
+    @GET("teacher/classrooms/{classroom_id}/students")
+    suspend fun getClassroomStudents(
+        @Path("classroom_id") classroomId: Int,
+        @Header("Authorization") token: String
+    ): List<ClassroomStudent>  // from ClassroomManagementScreen.kt
+
+    @DELETE("teacher/classrooms/{classroom_id}/students/{student_id}")
+    suspend fun removeStudentFromClassroom(
+        @Path("classroom_id") classroomId: Int,
+        @Path("student_id") studentId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, String>
+
+    @POST("student/join-classroom")
+    suspend fun joinClassroom(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, String>   // {"access_code": "XYZ123"}
+    ): Map<String, String>
+
+    @GET("student/my-classrooms")
+    suspend fun getMyClassrooms(
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+// ── Test endpoints ───────────────────────────────────────────────
+
+    @POST("teacher/tests")
+    suspend fun createTest(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Map<String, Any>
+
+    @GET("teacher/tests")
+    suspend fun getTeacherTests(
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+    @POST("teacher/tests/{test_id}/exercises")
+    suspend fun addExerciseToTest(
+        @Path("test_id") testId: Int,
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Map<String, String>
+
+    @PUT("teacher/tests/{test_id}/activate")
+    suspend fun toggleTestActive(
+        @Path("test_id") testId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, Any>
+
+    @GET("teacher/tests/{test_id}/results")
+    suspend fun getTestResults(
+        @Path("test_id") testId: Int,
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+    @GET("student/active-tests")
+    suspend fun getActiveTests(
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+    @GET("student/tests/{test_id}")
+    suspend fun getTestForStudent(
+        @Path("test_id") testId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, Any>
+
+    @POST("student/tests/{test_id}/submit")
+    suspend fun submitTest(
+        @Path("test_id") testId: Int,
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Map<String, Any>
+
+// ── Monitoring ───────────────────────────────────────────────────
+
+    @GET("teacher/classrooms/{classroom_id}/monitoring")
+    suspend fun getClassroomMonitoring(
+        @Path("classroom_id") classroomId: Int,
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+// ── Session tracking ─────────────────────────────────────────────
+
+    @POST("sessions/start")
+    suspend fun startSession(
+        @Header("Authorization") token: String
+    ): Map<String, Int>    // {"session_id": 5}
+
+    @PUT("sessions/{session_id}/end")
+    suspend fun endSession(
+        @Path("session_id") sessionId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, Any>
+
+// ── Teacher exercise library ─────────────────────────────────────
+
+    @POST("teacher/exercises")
+    suspend fun saveTeacherExercise(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Map<String, Any>
+
+    @GET("teacher/exercises")
+    suspend fun getTeacherExercises(
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+    @DELETE("teacher/exercises/{exercise_id}")
+    suspend fun deleteTeacherExercise(
+        @Path("exercise_id") exerciseId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, String>
+
+// ── AI improvement suggestions ───────────────────────────────────
+
+    @GET("student/improvement-suggestions")
+    suspend fun getImprovementSuggestions(
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+    @PUT("student/improvement-suggestions/{id}/read")
+    suspend fun markSuggestionRead(
+        @Path("id") suggestionId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, String>
 }

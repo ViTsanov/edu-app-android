@@ -11,6 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.gson.Gson
 import com.viktor.englishapp.data.RetrofitClient
 import com.viktor.englishapp.data.TokenManager
@@ -18,105 +21,103 @@ import com.viktor.englishapp.domain.ExerciseContent
 import com.viktor.englishapp.domain.ExerciseUpdateRequest
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EditExerciseScreen(
-    exerciseId: Int,
-    exerciseTitle: String,
-    initialContent: String,
-    onBack: () -> Unit,
-    onApproved: () -> Unit
-) {
-    val context = LocalContext.current
-    val tokenManager = remember { TokenManager(context) }
-    val token = tokenManager.getToken()
+// ─────────────────────────────────────────────────────────────────
+// ViewModel
+// ─────────────────────────────────────────────────────────────────
 
-    val coroutineScope = rememberCoroutineScope()
-    val gson = remember { Gson() }
+class EditExerciseViewModel : ViewModel() {
 
-    var title by remember { mutableStateOf("") }
-    var instructions by remember { mutableStateOf("") }
-    var isSpeaking by remember { mutableStateOf(false) }
-    val questions = remember { mutableStateListOf<String>() }
-    val answers = remember { mutableStateListOf<String>() }
+    // Parsed fields
+    var title by mutableStateOf("")
+    var instructions by mutableStateOf("")
+    var isSpeaking by mutableStateOf(false)
+    val questions = mutableStateListOf<String>()
+    val answers = mutableStateListOf<String>()
 
-    var parseError by remember { mutableStateOf(false) }
-    var rawFallbackContent by remember { mutableStateOf(initialContent) }
+    // Fallback when JSON cannot be parsed
+    var parseError by mutableStateOf(false)
+    var rawFallbackContent by mutableStateOf("")
 
-    var isSaving by remember { mutableStateOf(false) }
-    var isApproving by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf("") }
-    var isError by remember { mutableStateOf(false) }
+    // UI state
+    var isSaving by mutableStateOf(false)
+    var isApproving by mutableStateOf(false)
+    var statusMessage by mutableStateOf("")
+    var isError by mutableStateOf(false)
 
-    // 🟢 РАЗОПАКОВАНЕ И ДЕКОДИРАНЕ НА JSON ПРИ ОТВАРЯНЕ
-    LaunchedEffect(initialContent) {
+    /** Parses the initial JSON content into editable fields. */
+    fun parseContent(initialContent: String) {
+        rawFallbackContent = initialContent
         try {
             var cleanJson = initialContent.trim()
 
-            // 1. АВТОМАТИЧНО ДЕКОДИРАНЕ ОТ BASE64 (Ако навигацията е забравила да го направи)
-            if (!cleanJson.startsWith("{") && !cleanJson.startsWith("`")) {
+            // Auto-decode Base64 if needed
+            if (!cleanJson.startsWith("{")) {
                 try {
-                    val decodedBytes = android.util.Base64.decode(cleanJson, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
-                    cleanJson = String(decodedBytes, Charsets.UTF_8).trim()
-                } catch (e: Exception) {
-                    // Ако не е Base64, просто продължаваме
-                }
+                    val decoded = android.util.Base64.decode(
+                        cleanJson,
+                        android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                    )
+                    cleanJson = String(decoded, Charsets.UTF_8).trim()
+                } catch (_: Exception) { /* not Base64, continue */ }
             }
 
-            // 2. ИЗЧИСТВАНЕ НА МАРКДАУН (Ако AI го е сложил)
+            // Strip Markdown fences
             if (cleanJson.startsWith("```json")) {
                 cleanJson = cleanJson.substringAfter("```json").substringBeforeLast("```").trim()
             } else if (cleanJson.startsWith("```")) {
                 cleanJson = cleanJson.substringAfter("```").substringBeforeLast("```").trim()
             }
 
-            // Запазваме разкодирания и изчистен текст в случай на авария
             rawFallbackContent = cleanJson
 
-            // 3. ПРЕВРЪЩАНЕ В ОБЕКТ И РАЗДЕЛЯНЕ ПО КУТИЙКИ
-            val parsed = gson.fromJson(cleanJson, ExerciseContent::class.java)
+            val parsed = Gson().fromJson(cleanJson, ExerciseContent::class.java)
             if (parsed != null) {
                 title = parsed.title ?: ""
                 instructions = parsed.instructions ?: ""
                 isSpeaking = parsed.is_speaking
-
                 parsed.content?.let { questions.addAll(it) }
                 parsed.correct_answers?.let { answers.addAll(it) }
                 parseError = false
             } else {
                 parseError = true
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             parseError = true
         }
     }
 
-    fun saveExercise(andApprove: Boolean) {
-        if (token == null) return
+    /** Saves edits (and optionally approves) the exercise. */
+    fun saveExercise(
+        exerciseId: Int,
+        tokenManager: TokenManager,
+        andApprove: Boolean,
+        onApproved: () -> Unit
+    ) {
+        val token = tokenManager.getToken() ?: return
 
         if (andApprove) isApproving = true else isSaving = true
         statusMessage = ""
+        isError = false
 
-        coroutineScope.launch {
+        viewModelScope.launch {
             try {
-                val updatedJsonString = if (parseError) {
+                val updatedJson = if (parseError) {
                     rawFallbackContent
                 } else {
-                    val updatedObj = ExerciseContent(
-                        title = title,
-                        instructions = instructions,
-                        is_speaking = isSpeaking,
-                        content = questions.toList(),
-                        correct_answers = answers.toList()
+                    Gson().toJson(
+                        ExerciseContent(
+                            title = title,
+                            instructions = instructions,
+                            is_speaking = isSpeaking,
+                            content = questions.toList(),
+                            correct_answers = answers.toList()
+                        )
                     )
-                    gson.toJson(updatedObj)
                 }
-
-                val request = ExerciseUpdateRequest(content_prompt = updatedJsonString)
 
                 RetrofitClient.instance.editExercise(
                     exerciseId = exerciseId,
-                    request = request,
+                    request = ExerciseUpdateRequest(content_prompt = updatedJson),
                     token = "Bearer $token"
                 )
 
@@ -129,7 +130,6 @@ fun EditExerciseScreen(
                     onApproved()
                 } else {
                     statusMessage = "Промените са запазени!"
-                    isError = false
                 }
             } catch (e: Exception) {
                 statusMessage = "Грешка: ${e.message}"
@@ -139,6 +139,29 @@ fun EditExerciseScreen(
                 isApproving = false
             }
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Screen
+// ─────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditExerciseScreen(
+    exerciseId: Int,
+    exerciseTitle: String,
+    initialContent: String,
+    onBack: () -> Unit,
+    onApproved: () -> Unit,
+    viewModel: EditExerciseViewModel = viewModel()
+) {
+    val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
+
+    // Parse content exactly once when the screen opens
+    LaunchedEffect(initialContent) {
+        viewModel.parseContent(initialContent)
     }
 
     Scaffold(
@@ -160,31 +183,40 @@ fun EditExerciseScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            if (parseError) {
-                Text("AI върна неформатиран текст. Моля, редактирайте суровия код:", color = MaterialTheme.colorScheme.error)
+            if (viewModel.parseError) {
+                // Fallback: raw text editor
+                Text(
+                    "AI върна неформатиран текст. Редактирайте суровия JSON:",
+                    color = MaterialTheme.colorScheme.error
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = rawFallbackContent,
-                    onValueChange = { rawFallbackContent = it },
+                    value = viewModel.rawFallbackContent,
+                    onValueChange = { viewModel.rawFallbackContent = it },
                     modifier = Modifier.fillMaxWidth().height(300.dp)
                 )
             } else {
-                // --- КРАСИВ ИЗГЛЕД ЗА РЕДАКТИРАНЕ С ОТДЕЛНИ ПОЛЕТА ---
-                Text("Основна информация", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                // Structured editor
+                Text(
+                    "Основна информация",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
                 Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Заглавие на упражнението") }
+                    value = viewModel.title,
+                    onValueChange = { viewModel.title = it },
+                    label = { Text("Заглавие") },
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+
                 OutlinedTextField(
-                    value = instructions,
-                    onValueChange = { instructions = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    value = viewModel.instructions,
+                    onValueChange = { viewModel.instructions = it },
                     label = { Text("Инструкции за ученика") },
+                    modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
 
@@ -192,32 +224,47 @@ fun EditExerciseScreen(
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Text(if (isSpeaking) "Текстове за четене (Speaking)" else "Въпроси и Отговори", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    if (viewModel.isSpeaking) "Текстове за говорене" else "Въпроси и Отговори",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                questions.forEachIndexed { index, qText ->
+                viewModel.questions.forEachIndexed { index, _ ->
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Въпрос ${index + 1}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                "Въпрос ${index + 1}",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
 
                             OutlinedTextField(
-                                value = questions[index],
-                                onValueChange = { questions[index] = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text(if (isSpeaking) "Изречение за произнасяне" else "Въпрос / Изречение") }
+                                value = viewModel.questions[index],
+                                onValueChange = { viewModel.questions[index] = it },
+                                label = {
+                                    Text(
+                                        if (viewModel.isSpeaking) "Изречение за произнасяне"
+                                        else "Въпрос / Изречение"
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
                             )
 
-                            if (!isSpeaking && index < answers.size) {
+                            if (!viewModel.isSpeaking && index < viewModel.answers.size) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 OutlinedTextField(
-                                    value = answers[index],
-                                    onValueChange = { answers[index] = it },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    label = { Text("Правилен отговор") }
+                                    value = viewModel.answers[index],
+                                    onValueChange = { viewModel.answers[index] = it },
+                                    label = { Text("Правилен отговор") },
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
@@ -225,38 +272,67 @@ fun EditExerciseScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (statusMessage.isNotEmpty()) {
+            // Status message
+            if (viewModel.statusMessage.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = statusMessage,
-                    color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    text = viewModel.statusMessage,
+                    color = if (viewModel.isError) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                OutlinedButton(
-                    onClick = { saveExercise(andApprove = false) },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSaving && !isApproving
-                ) {
-                    if (isSaving) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                    else Text("Запази промените")
-                }
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.width(16.dp))
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        viewModel.saveExercise(
+                            exerciseId = exerciseId,
+                            tokenManager = tokenManager,
+                            andApprove = false,
+                            onApproved = {}
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !viewModel.isSaving && !viewModel.isApproving
+                ) {
+                    if (viewModel.isSaving) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Запази")
+                    }
+                }
 
                 Button(
-                    onClick = { saveExercise(andApprove = true) },
+                    onClick = {
+                        viewModel.saveExercise(
+                            exerciseId = exerciseId,
+                            tokenManager = tokenManager,
+                            andApprove = true,
+                            onApproved = onApproved
+                        )
+                    },
                     modifier = Modifier.weight(1f),
-                    enabled = !isSaving && !isApproving,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    enabled = !viewModel.isSaving && !viewModel.isApproving
                 ) {
-                    if (isApproving) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                    else Text("Запази и Одобри")
+                    if (viewModel.isApproving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Запази и Одобри")
+                    }
                 }
             }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }

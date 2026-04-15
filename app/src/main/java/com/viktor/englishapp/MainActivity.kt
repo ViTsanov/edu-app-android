@@ -1,5 +1,7 @@
-package com.viktor.englishapp // ПРОВЕРИ ПАКЕТА!
-import com.viktor.englishapp.ui.EditExerciseScreen
+package com.viktor.englishapp
+
+import android.content.Context
+import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,27 +9,45 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.core.content.edit
+import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.viktor.englishapp.data.TokenManager // ПРОВЕРИ ПАКЕТА!
-import com.viktor.englishapp.ui.DashboardScreen // ПРОВЕРИ ПАКЕТА!
-import com.viktor.englishapp.ui.LoginScreen // ПРОВЕРИ ПАКЕТА!
-import com.viktor.englishapp.ui.ExpertScreen
-import com.viktor.englishapp.ui.ExerciseListScreen
-import com.viktor.englishapp.ui.SolveExerciseScreen
-import com.viktor.englishapp.ui.theme.EnglishLearningAppTheme // ПРОВЕРИ ТЕМАТА!
-import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.viktor.englishapp.data.RetrofitClient
+import com.viktor.englishapp.data.TokenManager
+import com.viktor.englishapp.ui.ClassroomManagementScreen
+import com.viktor.englishapp.ui.DashboardScreen
+import com.viktor.englishapp.ui.EditExerciseScreen
+import com.viktor.englishapp.ui.ExerciseListScreen
+import com.viktor.englishapp.ui.ExpertActiveExercisesScreen
+import com.viktor.englishapp.ui.ExpertScreen
+import com.viktor.englishapp.ui.LoginScreen
 import com.viktor.englishapp.ui.PendingExercisesScreen
 import com.viktor.englishapp.ui.ProfileScreen
-
+import com.viktor.englishapp.ui.RegisterScreen
+import com.viktor.englishapp.ui.SolveExerciseScreen
+import com.viktor.englishapp.ui.StudentMonitoringScreen
+import com.viktor.englishapp.ui.TestTakingScreen
+import com.viktor.englishapp.ui.theme.EnglishLearningAppTheme
+import kotlinx.coroutines.launch
+import com.viktor.englishapp.ui.CreateTeacherExerciseScreen
+import com.viktor.englishapp.ui.CreateTestScreen
 
 class MainActivity : ComponentActivity() {
+
+    // ── Managers initialised once in onCreate ────────────────────
+    private lateinit var tokenManager: TokenManager
+    private lateinit var sessionManager: SessionManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val tokenManager = TokenManager(this)
+        tokenManager = TokenManager(this)
+        sessionManager = SessionManager(this)
+
         val startDestination = if (tokenManager.getToken() != null) "dashboard" else "login"
 
         setContent {
@@ -38,51 +58,50 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
 
-                    NavHost(navController = navController, startDestination = startDestination) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = startDestination
+                    ) {
 
-                        // --- ЕКРАН 1: ВХОД ---
-                        // ... съществуващият ти код за login ...
+                        // ── SCREEN 1: LOGIN ──────────────────────────────────
                         composable("login") {
-                            com.viktor.englishapp.ui.LoginScreen(
+                            LoginScreen(
                                 onLoginSuccess = {
                                     navController.navigate("dashboard") {
                                         popUpTo("login") { inclusive = true }
                                     }
                                 },
-                                // 🟢 ДОБАВЯМЕ КОМАНДАТА КЪМ LOGIN ЕКРАНА ДА ОТВАРЯ РЕГИСТРАЦИЯТА
                                 onNavigateToRegister = {
                                     navController.navigate("register")
                                 }
                             )
                         }
 
-                        // 🟢 НОВИЯТ ЕКРАН ЗА РЕГИСТРАЦИЯ
+                        // ── SCREEN 2: REGISTER ───────────────────────────────
                         composable("register") {
-                            com.viktor.englishapp.ui.RegisterScreen(
+                            RegisterScreen(
                                 onRegisterSuccess = {
-                                    // При успешна регистрация, връщаме потребителя към логин екрана
                                     navController.navigate("login") {
                                         popUpTo("register") { inclusive = true }
                                     }
                                 },
                                 onNavigateToLogin = {
-                                    navController.popBackStack() // Връщаме се назад към login
+                                    navController.popBackStack()
                                 }
                             )
                         }
 
-                        // --- ЕКРАН 2: ГЛАВНО МЕНЮ ---
-                        // Главното табло след успешен вход
+                        // ── SCREEN 3: DASHBOARD ──────────────────────────────
                         composable("dashboard") {
-                            com.viktor.englishapp.ui.DashboardScreen(
+                            DashboardScreen(
                                 onLogout = {
-                                    val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-                                    prefs.edit().remove("jwt_token").apply()
+                                    // FIX: use TokenManager instead of raw SharedPreferences
+                                    tokenManager.clearToken()
+                                    sessionManager.clearSession()
                                     navController.navigate("login") {
                                         popUpTo("dashboard") { inclusive = true }
                                     }
                                 },
-                                // 🟢 ЕТО ГО РЕШЕНИЕТО НА ГРЕШКАТА:
                                 onGoToProfile = {
                                     navController.navigate("profile")
                                 },
@@ -94,40 +113,61 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onGoToExercises = {
                                     navController.navigate("exercise_list")
+                                },
+                                onGoToClassrooms = {
+                                    navController.navigate("classroom_management")
+                                },
+                                onCreateExercise = {
+                                    navController.navigate("create_teacher_exercise")
+                                },   // NEW
+                                onCreateTest = {
+                                    navController.navigate("create_test")
                                 }
                             )
                         }
 
-                        // 🟢 ЕТО ГО НОВИЯТ МАРШРУТ ЗА ПРОФИЛА:
+                        // ── SCREEN 4: PROFILE ────────────────────────────────
                         composable("profile") {
-                            com.viktor.englishapp.ui.ProfileScreen(
+                            ProfileScreen(
                                 onBack = { navController.popBackStack() }
                             )
                         }
 
-                        // --- ЕКРАН 3: ЕКСПЕРТЕН ПАНЕЛ ---
+                        // ── SCREEN 5: EXPERT AI GENERATOR ───────────────────
                         composable("expert_panel") {
                             ExpertScreen(
                                 onBack = { navController.popBackStack() },
-                                onNavigateToPending = { navController.navigate("pending_exercises")}
-                            )
-                        }
-
-                        // 🟢 НОВО: Маршрутът за екрана за одобряване
-                        // 1. Маршрутът за екрана за одобряване
-                        composable("pending_exercises") {
-                            PendingExercisesScreen(
-                                onBack = { navController.popBackStack() },
-                                // 🟢 ТУК ПОДАВАМЕ ЛИПСВАЩИЯ ПАРАМЕТЪР:
-                                onEditExercise = { exerciseId, title, content ->
-                                    val encodedContent = android.util.Base64.encodeToString(content.toByteArray(Charsets.UTF_8), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
-                                    val encodedTitle = android.util.Base64.encodeToString(title.toByteArray(Charsets.UTF_8), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
-                                    navController.navigate("edit_exercise/$exerciseId/$encodedTitle/$encodedContent")
+                                onNavigateToPending = {
+                                    navController.navigate("pending_exercises")
+                                },
+                                onCreateManualExercise = {
+                                    navController.navigate("create_teacher_exercise")
                                 }
                             )
                         }
 
-                        // 2. Новият екран за редактиране, към който отиваме
+                        // ── SCREEN 6: PENDING EXERCISES (expert review) ──────
+                        composable("pending_exercises") {
+                            PendingExercisesScreen(
+                                onBack = { navController.popBackStack() },
+                                onEditExercise = { exerciseId, title, content ->
+                                    val encodedContent = android.util.Base64.encodeToString(
+                                        content.toByteArray(Charsets.UTF_8),
+                                        android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                                    )
+                                    val encodedTitle = android.util.Base64.encodeToString(
+                                        title.toByteArray(Charsets.UTF_8),
+                                        android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                                    )
+                                    navController.navigate(
+                                        "edit_exercise/$exerciseId/$encodedTitle/$encodedContent"
+                                    )
+                                }
+                            )
+                        }
+
+                        // ── SCREEN 7: EDIT EXERCISE ──────────────────────────
+                        // FIX: Only ONE definition here (Base64). Duplicate removed.
                         composable(
                             route = "edit_exercise/{exerciseId}/{title}/{content}",
                             arguments = listOf(
@@ -136,14 +176,29 @@ class MainActivity : ComponentActivity() {
                                 navArgument("content") { type = NavType.StringType }
                             )
                         ) { backStackEntry ->
-                            val exerciseId = backStackEntry.arguments?.getInt("exerciseId") ?: return@composable
-                            val titleArg = backStackEntry.arguments?.getString("title") ?: ""
-                            val contentArg = backStackEntry.arguments?.getString("content") ?: ""
+                            val exerciseId =
+                                backStackEntry.arguments?.getInt("exerciseId") ?: return@composable
+                            val titleArg =
+                                backStackEntry.arguments?.getString("title") ?: ""
+                            val contentArg =
+                                backStackEntry.arguments?.getString("content") ?: ""
 
-                            val title = String(android.util.Base64.decode(titleArg, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP), Charsets.UTF_8)
-                            val content = String(android.util.Base64.decode(contentArg, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP), Charsets.UTF_8)
+                            val title = String(
+                                android.util.Base64.decode(
+                                    titleArg,
+                                    android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                                ),
+                                Charsets.UTF_8
+                            )
+                            val content = String(
+                                android.util.Base64.decode(
+                                    contentArg,
+                                    android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
+                                ),
+                                Charsets.UTF_8
+                            )
 
-                            com.viktor.englishapp.ui.EditExerciseScreen(
+                            EditExerciseScreen(
                                 exerciseId = exerciseId,
                                 exerciseTitle = title,
                                 initialContent = content,
@@ -152,46 +207,21 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        composable(
-                            route = "edit_exercise/{exerciseId}/{title}/{content}",
-                            arguments = listOf(
-                                navArgument("exerciseId") { type = NavType.IntType },
-                                navArgument("title") { type = NavType.StringType },
-                                navArgument("content") { type = NavType.StringType }
-                            )
-                        ) { backStackEntry ->
-                            val exerciseId = backStackEntry.arguments?.getInt("exerciseId") ?: return@composable
-                            val title = java.net.URLDecoder.decode(backStackEntry.arguments?.getString("title") ?: "", "UTF-8")
-                            val content = java.net.URLDecoder.decode(backStackEntry.arguments?.getString("content") ?: "", "UTF-8")
-
-                            EditExerciseScreen(
-                                exerciseId = exerciseId,
-                                exerciseTitle = title,
-                                initialContent = content,
-                                onBack = { navController.popBackStack() },
-                                onApproved = {
-                                    // Връщаме се в предишния екран, когато е одобрено
-                                    navController.popBackStack()
-                                }
-                            )
-                        }
-
-                        // --- ЕКРАН 4: СПИСЪК С УПРАЖНЕНИЯ ---
+                        // ── SCREEN 8: EXERCISE LIST (student learning path) ──
                         composable("exercise_list") {
                             ExerciseListScreen(
                                 onBack = { navController.popBackStack() },
                                 onExerciseClick = { exercise ->
-                                    // 1. Кодираме JSON текста (вече се казва content_prompt)
-                                    val encodedJson = java.net.URLEncoder.encode(exercise.content_prompt, "UTF-8")
-                                    val exerciseId = exercise.id
-
-                                    // 2. Предаваме ID-то и кодирания текст
-                                    navController.navigate("solve_exercise/$exerciseId/$encodedJson")
+                                    val encodedJson = java.net.URLEncoder.encode(
+                                        exercise.content_prompt, "UTF-8"
+                                    )
+                                    navController.navigate("solve_exercise/${exercise.id}/$encodedJson")
                                 }
                             )
                         }
+
+                        // ── SCREEN 9: SOLVE EXERCISE ─────────────────────────
                         composable(
-                            // Вече очакваме и ID, и JSON
                             route = "solve_exercise/{id}/{json}",
                             arguments = listOf(
                                 navArgument("id") { type = NavType.IntType },
@@ -200,25 +230,123 @@ class MainActivity : ComponentActivity() {
                         ) { backStackEntry ->
                             val exerciseId = backStackEntry.arguments?.getInt("id") ?: 0
                             val encodedJson = backStackEntry.arguments?.getString("json") ?: ""
-
                             val decodedJson = java.net.URLDecoder.decode(encodedJson, "UTF-8")
 
                             SolveExerciseScreen(
-                                exerciseId = exerciseId, // Подаваме ID-то на екрана!
+                                exerciseId = exerciseId,
                                 exerciseJson = decodedJson,
                                 onBack = { navController.popBackStack() }
                             )
                         }
 
-                        // Екран за разглеждане на активни упражнения от експерт
+                        // ── SCREEN 10: EXPERT ACTIVE EXERCISES ──────────────
                         composable("expert_active_exercises") {
-                            com.viktor.englishapp.ui.ExpertActiveExercisesScreen(
+                            ExpertActiveExercisesScreen(
                                 onBack = { navController.popBackStack() }
                             )
                         }
-                    }
+
+                        // ── SCREEN 11: CLASSROOM MANAGEMENT (teacher) ────────
+                        composable("classroom_management") {
+                            ClassroomManagementScreen(
+                                onBack = { navController.popBackStack() },
+                                onNavigateToMonitoring = { classroomId ->
+                                    navController.navigate("monitoring/$classroomId")
+                                }
+                            )
+                        }
+
+                        composable("create_teacher_exercise") {
+                            CreateTeacherExerciseScreen(
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        composable("create_test") {
+                            CreateTestScreen(
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // ── SCREEN 12: STUDENT MONITORING (teacher) ──────────
+                        composable(
+                            route = "monitoring/{classroomId}",
+                            arguments = listOf(
+                                navArgument("classroomId") { type = NavType.IntType }
+                            )
+                        ) { backStackEntry ->
+                            val classroomId =
+                                backStackEntry.arguments?.getInt("classroomId") ?: 0
+                            StudentMonitoringScreen(
+                                classroomId = classroomId,
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // ── SCREEN 13: TEST TAKING (student) ────────────────
+                        composable(
+                            route = "test_taking/{testId}",
+                            arguments = listOf(
+                                navArgument("testId") { type = NavType.IntType }
+                            )
+                        ) { backStackEntry ->
+                            val testId = backStackEntry.arguments?.getInt("testId") ?: 0
+                            TestTakingScreen(
+                                testId = testId,
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                    } // end NavHost
                 }
             }
+        } // end setContent
+    } // end onCreate
+
+    // ── Session tracking — FIX: moved here, OUT of setContent ────
+    override fun onStart() {
+        super.onStart()
+        val token = tokenManager.getToken() ?: return
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitClient.instance.startSession("Bearer $token")
+                val sessionId = (response["session_id"] as? Double)?.toInt() ?: return@launch
+                sessionManager.saveSessionId(sessionId)
+            } catch (_: Exception) {
+                // Non-critical — session tracking is best-effort
+            }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        val token = tokenManager.getToken() ?: return
+        val sessionId = sessionManager.getSessionId()
+        if (sessionId == -1) return
+        lifecycleScope.launch {
+            try {
+                RetrofitClient.instance.endSession(sessionId, "Bearer $token")
+                sessionManager.clearSession()
+            } catch (_: Exception) {
+                // Non-critical
+            }
+        }
+    }
+}
+
+// ── SessionManager — placed at file level (valid Kotlin) ─────────
+class SessionManager(private val context: Context) {
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("session_prefs", Context.MODE_PRIVATE)
+
+    fun saveSessionId(sessionId: Int) {
+        prefs.edit { putInt("active_session_id", sessionId) }
+    }
+
+    fun getSessionId(): Int = prefs.getInt("active_session_id", -1)
+
+    fun clearSession() {
+        prefs.edit { remove("active_session_id") }
     }
 }

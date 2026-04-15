@@ -107,3 +107,19 @@ data class StudentPathItem(
     val status: String, // "AVAILABLE", "COMPLETED", "RETRY"
     val best_score: Int?
 )
+
+data class ClassroomItem(
+    val id: Int,
+    val name: String,
+    val access_code: String,
+    val level_id: Int,
+    val student_count: Int
+)
+
+data class ClassroomStudent(
+    val id: Int,
+    val username: String,
+    val email: String,
+    val english_level: String,
+    val total_xp: Int
+)

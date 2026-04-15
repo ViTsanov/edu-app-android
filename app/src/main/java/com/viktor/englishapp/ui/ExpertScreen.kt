@@ -13,12 +13,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viktor.englishapp.data.TokenManager
+import androidx.compose.material.icons.filled.Edit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpertScreen(
     onBack: () -> Unit,
     onNavigateToPending: () -> Unit,
+    onCreateManualExercise: () -> Unit,
     viewModel: ExpertViewModel = viewModel() // ИНЖЕКТИРАМЕ МОЗЪКА
 ) {
     val context = LocalContext.current
@@ -120,9 +122,25 @@ fun ExpertScreen(
 
             // 🟢 НОВИЯТ БУТОН ЗА ПРЕГЛЕД НА ЧАКАЩИ
             Button(
+                onClick = onCreateManualExercise,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("СЪЗДАЙ НОВО УПРАЖНЕНИЕ")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
                 onClick = onNavigateToPending,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary
+                )
             ) {
                 Text("ПРЕГЛЕД НА ЧАКАЩИ ЗА ОДОБРЕНИЕ")
             }

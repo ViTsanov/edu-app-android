@@ -11,21 +11,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.viktor.englishapp.data.RetrofitClient
-import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.viktor.englishapp.data.TokenManager
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onNavigateToRegister: () -> Unit // 🟢 Командата за преход към регистрация
+    onNavigateToRegister: () -> Unit,
+    viewModel: LoginViewModel = viewModel()
 ) {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-
-    val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
 
     Column(
         modifier = Modifier
@@ -42,69 +38,61 @@ fun LoginScreen(
         )
         Spacer(modifier = Modifier.height(32.dp))
 
+        // Username field — bound to ViewModel state
         OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
+            value = viewModel.username,
+            onValueChange = { viewModel.username = it },
             label = { Text("Потребителско име") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
         )
-
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Password field
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
+            value = viewModel.password,
+            onValueChange = { viewModel.password = it },
             label = { Text("Парола") },
             modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
-
         Spacer(modifier = Modifier.height(24.dp))
 
-        if (errorMessage.isNotEmpty()) {
-            Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
+        // Error message
+        if (viewModel.errorMessage.isNotEmpty()) {
+            Text(
+                text = viewModel.errorMessage,
+                color = MaterialTheme.colorScheme.error
+            )
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // --- БУТОН ЗА ВХОД ---
+        // Login button — delegates entirely to ViewModel
         Button(
             onClick = {
-                if (username.isBlank() || password.isBlank()) {
-                    errorMessage = "Моля, въведете име и парола."
-                    return@Button
-                }
-                isLoading = true
-                errorMessage = ""
-
-                coroutineScope.launch {
-                    try {
-                        val response = RetrofitClient.instance.login(username, password)
-                        // Запазваме токена
-                        val prefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-                        prefs.edit().putString("jwt_token", response.access_token).apply()
-                        onLoginSuccess()
-                    } catch (e: Exception) {
-                        errorMessage = "Грешни данни за вход."
-                    } finally {
-                        isLoading = false
-                    }
-                }
+                viewModel.login(tokenManager = tokenManager, onSuccess = onLoginSuccess)
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            enabled = !isLoading
+            enabled = !viewModel.isLoading
         ) {
-            if (isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            else Text("ВХОД", fontSize = MaterialTheme.typography.titleMedium.fontSize)
+            if (viewModel.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                Text(
+                    "ВХОД",
+                    fontSize = MaterialTheme.typography.titleMedium.fontSize
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
         HorizontalDivider()
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- 🟢 БУТОН ЗА РЕГИСТРАЦИЯ ---
         TextButton(onClick = onNavigateToRegister) {
             Text(
                 text = "Нямаш акаунт? Регистрирай се тук.",
