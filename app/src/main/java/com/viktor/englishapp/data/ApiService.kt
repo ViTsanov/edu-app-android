@@ -233,4 +233,55 @@ interface ApiService {
         @Path("id") suggestionId: Int,
         @Header("Authorization") token: String
     ): Map<String, String>
+
+    // Student classrooms
+    @GET("student/my-classrooms")
+    suspend fun getStudentClassrooms(
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+    // Student homework
+    @GET("student/homework")
+    suspend fun getStudentHomework(
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+    // Exercise result review
+    @GET("exercises/{exercise_id}/my-result")
+    suspend fun getMyExerciseResult(
+        @Path("exercise_id") exerciseId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, Any>
+
+    // Teacher homework
+    @POST("teacher/homework")
+    suspend fun createHomework(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any?>
+    ): Map<String, Any>
+
+    @GET("teacher/homework")
+    suspend fun getTeacherHomework(
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
+
+    @DELETE("teacher/homework/{homework_id}")
+    suspend fun deleteHomework(
+        @Path("homework_id") homeworkId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, String>
+
+    // Test activation with opening time
+    @PUT("teacher/tests/{test_id}/activate")
+    suspend fun activateTestWithTime(
+        @Path("test_id") testId: Int,
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any?>
+    ): Map<String, Any>
+
+    @PUT("teacher/tests/{test_id}/deactivate")
+    suspend fun deactivateTest(
+        @Path("test_id") testId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, Any>
 }

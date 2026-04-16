@@ -17,8 +17,6 @@ import com.viktor.englishapp.data.RetrofitClient
 import com.viktor.englishapp.data.TokenManager
 import com.viktor.englishapp.domain.UserProfile
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Quiz
 
 // ─────────────────────────────────────────────────────────────────
 // ViewModel
@@ -37,7 +35,6 @@ class DashboardViewModel : ViewModel() {
             isLoading = false
             return
         }
-
         viewModelScope.launch {
             try {
                 userProfile = RetrofitClient.instance.getMyProfile("Bearer $token")
@@ -63,14 +60,19 @@ fun DashboardScreen(
     onGoToExpertActive: () -> Unit,
     onGoToExercises: () -> Unit,
     onGoToClassrooms: () -> Unit,
-    onCreateExercise: () -> Unit,   // NEW
-    onCreateTest: () -> Unit,       // NEW
+    onCreateExercise: () -> Unit,
+    onCreateTest: () -> Unit,
+    onGoToPath: () -> Unit,
+    onJoinClassroom: () -> Unit,
+    onGoToMyClassrooms: () -> Unit,
+    onGoToHomework: () -> Unit,
+    onGoToAssignHomework: () -> Unit,
+    onGoToTestManagement: () -> Unit,
     viewModel: DashboardViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
 
-    // Load profile once when screen first appears
     LaunchedEffect(Unit) {
         viewModel.loadProfile(tokenManager)
     }
@@ -118,7 +120,6 @@ fun DashboardScreen(
                 else -> {
                     val profile = viewModel.userProfile
 
-                    // Greeting
                     Text(
                         text = "Здравей, ${profile?.username}! 👋",
                         style = MaterialTheme.typography.headlineMedium,
@@ -132,10 +133,10 @@ fun DashboardScreen(
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // Role-based content
                     when (profile?.role_id) {
+
+                        // ── TEACHER ───────────────────────────────
                         2 -> {
-                            // TEACHER — no "Чакащи одобрение", has created exercise + create test
                             Text(
                                 "Учителско табло",
                                 style = MaterialTheme.typography.titleLarge,
@@ -187,15 +188,37 @@ fun DashboardScreen(
                                 Spacer(Modifier.width(8.dp))
                                 Text("АКТИВНИ УПРАЖНЕНИЯ")
                             }
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedButton(
+                                onClick = onGoToAssignHomework,
+                                modifier = Modifier.fillMaxWidth().height(56.dp)
+                            ) {
+                                Icon(Icons.Default.Assignment, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("ЗАДАЙ ДОМАШНО")
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedButton(
+                                onClick = onGoToTestManagement,
+                                modifier = Modifier.fillMaxWidth().height(56.dp)
+                            ) {
+                                Icon(Icons.Default.Quiz, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("УПРАВЛЕНИЕ НА ТЕСТОВЕ")
+                            }
                         }
+
+                        // ── EXPERT ────────────────────────────────
                         3 -> {
-                            // EXPERT
                             Text(
                                 "Експертно табло",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(16.dp))
+
                             Button(
                                 onClick = onGoToExpert,
                                 modifier = Modifier.fillMaxWidth().height(56.dp)
@@ -205,6 +228,7 @@ fun DashboardScreen(
                                 Text("ЧАКАЩИ ОДОБРЕНИЕ")
                             }
                             Spacer(modifier = Modifier.height(12.dp))
+
                             Button(
                                 onClick = onGoToExpertActive,
                                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -217,31 +241,68 @@ fun DashboardScreen(
                                 Text("АКТИВНИ УПРАЖНЕНИЯ")
                             }
                         }
+
+                        // ── STUDENT (default) ─────────────────────
                         else -> {
-                            // STUDENT
                             Surface(
                                 color = MaterialTheme.colorScheme.primaryContainer,
                                 shape = MaterialTheme.shapes.medium
                             ) {
                                 Text(
-                                    text = "Точки: ${profile?.total_xp} XP 🏆",
+                                    text = "Ниво ${profile?.english_level ?: "A1"}  ·  ${profile?.total_xp} XP 🏆",
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
-                            Spacer(modifier = Modifier.height(32.dp))
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
                             Button(
-                                onClick = onGoToExercises,
+                                onClick = onGoToPath,
                                 modifier = Modifier.fillMaxWidth().height(56.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary
                                 )
                             ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                                Icon(Icons.Default.Map, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("ЗАПОЧНИ УЧЕНЕ")
+                                Text("МОЯ УЧЕБЕН ПЪТ")
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            // BUG FIX: Spacer and Text are now INSIDE the lambda
+                            OutlinedButton(
+                                onClick = onGoToMyClassrooms,
+                                modifier = Modifier.fillMaxWidth().height(56.dp)
+                            ) {
+                                Icon(Icons.Default.School, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("МОИТЕ КЛАСОВЕ")
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            OutlinedButton(
+                                onClick = onGoToHomework,
+                                modifier = Modifier.fillMaxWidth().height(56.dp)
+                            ) {
+                                Icon(Icons.Default.Assignment, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("ДОМАШНИ")
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedButton(
+                                onClick = onJoinClassroom,
+                                modifier = Modifier.fillMaxWidth().height(56.dp)
+                            ) {
+                                Icon(Icons.Default.School, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("ПРИСЪЕДИНИ СЕ КЪМ КЛАС")
                             }
                         }
                     }
@@ -254,131 +315,5 @@ fun DashboardScreen(
                 }
             }
         }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Role-specific content blocks (private composables)
-// ─────────────────────────────────────────────────────────────────
-
-@Composable
-private fun StudentDashboardContent(
-    totalXp: Int,
-    englishLevel: String,
-    onGoToExercises: () -> Unit
-) {
-    // XP chip
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = MaterialTheme.shapes.medium
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Ниво $englishLevel  ·  $totalXp XP 🏆",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-    }
-
-    Spacer(modifier = Modifier.height(32.dp))
-
-    Button(
-        onClick = onGoToExercises,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-    ) {
-        Icon(Icons.Default.PlayArrow, contentDescription = null)
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("ЗАПОЧНИ УЧЕНЕ")
-    }
-}
-
-@Composable
-private fun TeacherDashboardContent(
-    onGoToClassrooms: () -> Unit,
-    onGoToExpert: () -> Unit,
-    onGoToExpertActive: () -> Unit
-) {
-    Text(
-        "Учителско табло",
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.primary
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Button(
-        onClick = onGoToClassrooms,
-        modifier = Modifier.fillMaxWidth().height(56.dp)
-    ) {
-        Icon(Icons.Default.School, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text("МОИ КЛАСОВЕ")
-    }
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    Button(
-        onClick = onGoToExpert,
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.secondary
-        )
-    ) {
-        Icon(Icons.Default.PendingActions, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text("ЧАКАЩИ ОДОБРЕНИЕ")
-    }
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    OutlinedButton(
-        onClick = onGoToExpertActive,
-        modifier = Modifier.fillMaxWidth().height(56.dp)
-    ) {
-        Icon(Icons.Default.List, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text("АКТИВНИ УПРАЖНЕНИЯ")
-    }
-}
-
-@Composable
-private fun ExpertDashboardContent(
-    onGoToExpert: () -> Unit,
-    onGoToExpertActive: () -> Unit
-) {
-    Text(
-        "Експертно табло",
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.primary
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Button(
-        onClick = onGoToExpert,
-        modifier = Modifier.fillMaxWidth().height(56.dp)
-    ) {
-        Icon(Icons.Default.PendingActions, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text("ЧАКАЩИ ОДОБРЕНИЕ")
-    }
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    Button(
-        onClick = onGoToExpertActive,
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.secondary
-        )
-    ) {
-        Icon(Icons.Default.List, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text("АКТИВНИ УПРАЖНЕНИЯ")
     }
 }

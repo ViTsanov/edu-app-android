@@ -35,6 +35,18 @@ import com.viktor.englishapp.ui.theme.EnglishLearningAppTheme
 import kotlinx.coroutines.launch
 import com.viktor.englishapp.ui.CreateTeacherExerciseScreen
 import com.viktor.englishapp.ui.CreateTestScreen
+import com.viktor.englishapp.ui.JoinClassroomScreen
+import com.viktor.englishapp.ui.LearningPathScreen
+import com.viktor.englishapp.ui.MyClassroomsScreen
+import com.viktor.englishapp.ui.ExerciseResultScreen
+import com.viktor.englishapp.ui.StudentHomeworkScreen
+import com.viktor.englishapp.ui.AssignHomeworkScreen
+import com.viktor.englishapp.ui.TestManagementScreen
+import com.viktor.englishapp.ui.MyClassroomsScreen
+import com.viktor.englishapp.ui.StudentHomeworkScreen
+import com.viktor.englishapp.ui.AssignHomeworkScreen
+import com.viktor.englishapp.ui.TestManagementScreen
+import com.viktor.englishapp.ui.ExerciseResultScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -122,6 +134,24 @@ class MainActivity : ComponentActivity() {
                                 },   // NEW
                                 onCreateTest = {
                                     navController.navigate("create_test")
+                                },
+                                onGoToPath = {
+                                    navController.navigate("learning_path")
+                                },       // ← ADD
+                                onJoinClassroom = {
+                                    navController.navigate("join_classroom")
+                                },
+                                onGoToMyClassrooms = {
+                                    navController.navigate("my_classrooms")
+                                },      // ← ADD
+                                onGoToHomework = {
+                                    navController.navigate("student_homework")
+                                },        // ← ADD
+                                onGoToAssignHomework = {
+                                    navController.navigate("assign_homework")
+                                },   // ← ADD
+                                onGoToTestManagement = {
+                                    navController.navigate("test_management")
                                 }
                             )
                         }
@@ -294,6 +324,76 @@ class MainActivity : ComponentActivity() {
                             TestTakingScreen(
                                 testId = testId,
                                 onBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // Join classroom
+                        composable("join_classroom") {
+                            JoinClassroomScreen(
+                                onBack = { navController.popBackStack() },
+                                onJoined = { navController.popBackStack() }
+                            )
+                        }
+
+// Interactive learning path (replaces exercise_list for students)
+                        composable("learning_path") {
+                            LearningPathScreen(
+                                onBack = { navController.popBackStack() },
+                                onStartExercise = { exercise ->
+                                    val encodedJson = java.net.URLEncoder.encode(exercise.content_prompt, "UTF-8")
+                                    navController.navigate("solve_exercise/${exercise.id}/$encodedJson")
+                                }
+                            )
+                        }
+
+
+                        // Student: my classrooms
+                        composable("my_classrooms") {
+                            MyClassroomsScreen(
+                                onBack = { navController.popBackStack() },
+                                onGoToHomework = { navController.navigate("student_homework") },
+                                onGoToJoin = { navController.navigate("join_classroom") }
+                            )
+                        }
+
+// Student: homework
+                        composable("student_homework") {
+                            StudentHomeworkScreen(
+                                onBack = { navController.popBackStack() },
+                                onStartExercise = { exerciseId, encodedJson ->
+                                    navController.navigate("solve_exercise/$exerciseId/$encodedJson")
+                                }
+                            )
+                        }
+
+// Student: view old exercise result
+                        composable(
+                            route = "exercise_result/{exerciseId}",
+                            arguments = listOf(navArgument("exerciseId") { type = NavType.IntType })
+                        ) { backStackEntry ->
+                            val exerciseId = backStackEntry.arguments?.getInt("exerciseId") ?: 0
+                            ExerciseResultScreen(
+                                exerciseId = exerciseId,
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+// Teacher: assign homework
+                        composable("assign_homework") {
+                            AssignHomeworkScreen(
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+// Teacher: manage tests (activate/deactivate with opening time)
+                        composable("test_management") {
+                            TestManagementScreen(
+                                onBack = { navController.popBackStack() },
+                                onCreateTest = { navController.navigate("create_test") },
+                                onViewResults = { testId ->
+                                    // reuse existing test_results route if you have one
+                                    // or just navigate to a simple screen
+                                }
                             )
                         }
 
