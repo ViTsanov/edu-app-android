@@ -196,7 +196,7 @@ fun DashboardScreen(
                             ) {
                                 Icon(Icons.Default.Assignment, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("ЗАДАЙ ДОМАШНО")
+                                Text("ДОМАШНИ НА КЛАСА")
                             }
                             Spacer(modifier = Modifier.height(12.dp))
 

@@ -19,34 +19,32 @@ import androidx.navigation.navArgument
 import com.viktor.englishapp.data.RetrofitClient
 import com.viktor.englishapp.data.TokenManager
 import com.viktor.englishapp.ui.ClassroomManagementScreen
+import com.viktor.englishapp.ui.ClassroomDetailScreen
+import com.viktor.englishapp.ui.CreateTeacherExerciseScreen
+import com.viktor.englishapp.ui.CreateTestScreen
 import com.viktor.englishapp.ui.DashboardScreen
 import com.viktor.englishapp.ui.EditExerciseScreen
 import com.viktor.englishapp.ui.ExerciseListScreen
+import com.viktor.englishapp.ui.ExerciseResultScreen
 import com.viktor.englishapp.ui.ExpertActiveExercisesScreen
 import com.viktor.englishapp.ui.ExpertScreen
+import com.viktor.englishapp.ui.JoinClassroomScreen
+import com.viktor.englishapp.ui.LearningPathScreen
 import com.viktor.englishapp.ui.LoginScreen
+import com.viktor.englishapp.ui.MyClassroomsScreen
 import com.viktor.englishapp.ui.PendingExercisesScreen
 import com.viktor.englishapp.ui.ProfileScreen
 import com.viktor.englishapp.ui.RegisterScreen
+import com.viktor.englishapp.ui.AssignHomeworkScreen
 import com.viktor.englishapp.ui.SolveExerciseScreen
+import com.viktor.englishapp.ui.StudentHomeworkScreen
 import com.viktor.englishapp.ui.StudentMonitoringScreen
+import com.viktor.englishapp.ui.TeacherHomeworkListScreen
+import com.viktor.englishapp.ui.TeacherHomeworkReviewScreen
+import com.viktor.englishapp.ui.TestManagementScreen
 import com.viktor.englishapp.ui.TestTakingScreen
 import com.viktor.englishapp.ui.theme.EnglishLearningAppTheme
 import kotlinx.coroutines.launch
-import com.viktor.englishapp.ui.CreateTeacherExerciseScreen
-import com.viktor.englishapp.ui.CreateTestScreen
-import com.viktor.englishapp.ui.JoinClassroomScreen
-import com.viktor.englishapp.ui.LearningPathScreen
-import com.viktor.englishapp.ui.MyClassroomsScreen
-import com.viktor.englishapp.ui.ExerciseResultScreen
-import com.viktor.englishapp.ui.StudentHomeworkScreen
-import com.viktor.englishapp.ui.AssignHomeworkScreen
-import com.viktor.englishapp.ui.TestManagementScreen
-import com.viktor.englishapp.ui.MyClassroomsScreen
-import com.viktor.englishapp.ui.StudentHomeworkScreen
-import com.viktor.englishapp.ui.AssignHomeworkScreen
-import com.viktor.englishapp.ui.TestManagementScreen
-import com.viktor.englishapp.ui.ExerciseResultScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -148,8 +146,8 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("student_homework")
                                 },        // ← ADD
                                 onGoToAssignHomework = {
-                                    navController.navigate("assign_homework")
-                                },   // ← ADD
+                                    navController.navigate("teacher_homework_list")
+                                },
                                 onGoToTestManagement = {
                                     navController.navigate("test_management")
                                 }
@@ -265,6 +263,7 @@ class MainActivity : ComponentActivity() {
                             SolveExerciseScreen(
                                 exerciseId = exerciseId,
                                 exerciseJson = decodedJson,
+                                homeworkId = 0,
                                 onBack = { navController.popBackStack() }
                             )
                         }
@@ -352,11 +351,13 @@ class MainActivity : ComponentActivity() {
                             MyClassroomsScreen(
                                 onBack = { navController.popBackStack() },
                                 onGoToHomework = { navController.navigate("student_homework") },
-                                onGoToJoin = { navController.navigate("join_classroom") }
+                                onGoToJoin = { navController.navigate("join_classroom") },
+                                onOpenClassroom = { classroomId ->       // ← ADD
+                                    navController.navigate("classroom_detail/$classroomId")
+                                }
                             )
                         }
 
-// Student: homework
                         composable("student_homework") {
                             StudentHomeworkScreen(
                                 onBack = { navController.popBackStack() },
@@ -393,6 +394,94 @@ class MainActivity : ComponentActivity() {
                                 onViewResults = { testId ->
                                     // reuse existing test_results route if you have one
                                     // or just navigate to a simple screen
+                                }
+                            )
+                        }
+
+                        composable(
+                            route = "classroom_detail/{classroomId}",
+                            arguments = listOf(navArgument("classroomId") { type = NavType.IntType })
+                        ) { backStackEntry ->
+                            val classroomId = backStackEntry.arguments?.getInt("classroomId") ?: 0
+                            ClassroomDetailScreen(
+                                classroomId = classroomId,
+                                onBack = { navController.popBackStack() },
+                                onOpenHomework = { hw ->
+                                    if (!hw.submitted && hw.contentPrompt != null) {
+                                        // Not yet submitted → go solve it (as homework)
+                                        val encodedJson = java.net.URLEncoder.encode(hw.contentPrompt, "UTF-8")
+                                        val exerciseId = hw.exerciseId ?: hw.teacherExerciseId ?: 0
+                                        // Navigate to solve_exercise but we need to pass homeworkId too
+                                        // Use homework_solve route:
+                                        navController.navigate("homework_solve/${hw.id}/$exerciseId/$encodedJson")
+                                    } else {
+                                        // Already submitted → show result
+                                        val exerciseId = hw.exerciseId ?: return@ClassroomDetailScreen
+                                        navController.navigate("exercise_result/$exerciseId")
+                                    }
+                                },
+                                onOpenTest = { testId ->
+                                    navController.navigate("test_taking/$testId")
+                                }
+                            )
+                        }
+
+// ── Student: solve a homework exercise ──────────────────────────
+// Route: homework_solve/{homeworkId}/{exerciseId}/{encodedJson}
+                        composable(
+                            route = "homework_solve/{homeworkId}/{exerciseId}/{json}",
+                            arguments = listOf(
+                                navArgument("homeworkId") { type = NavType.IntType },
+                                navArgument("exerciseId") { type = NavType.IntType },
+                                navArgument("json") { type = NavType.StringType }
+                            )
+                        ) { backStackEntry ->
+                            val homeworkId = backStackEntry.arguments?.getInt("homeworkId") ?: 0
+                            val exerciseId = backStackEntry.arguments?.getInt("exerciseId") ?: 0
+                            val json = java.net.URLDecoder.decode(
+                                backStackEntry.arguments?.getString("json") ?: "", "UTF-8"
+                            )
+                            // Reuse SolveExerciseScreen but pass homeworkId so it submits to
+                            // POST /homework/{id}/submit-text instead of POST /exercises/{id}/submit-text
+                            SolveExerciseScreen(
+                                exerciseId = exerciseId,
+                                exerciseJson = json,
+                                homeworkId = homeworkId,
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+
+// ── Teacher: see homework submissions ───────────────────────────
+                        composable(
+                            route = "homework_review/{homeworkId}/{encodedTitle}/{encodedJson}",
+                            arguments = listOf(
+                                navArgument("homeworkId") { type = NavType.IntType },
+                                navArgument("encodedTitle") { type = NavType.StringType },
+                                navArgument("encodedJson") { type = NavType.StringType }
+                            )
+                        ) { backStackEntry ->
+                            val homeworkId = backStackEntry.arguments?.getInt("homeworkId") ?: 0
+                            val title = java.net.URLDecoder.decode(
+                                backStackEntry.arguments?.getString("encodedTitle") ?: "", "UTF-8"
+                            )
+                            val contentPrompt = java.net.URLDecoder.decode(
+                                backStackEntry.arguments?.getString("encodedJson") ?: "", "UTF-8"
+                            )
+                            TeacherHomeworkReviewScreen(
+                                homeworkId = homeworkId,
+                                homeworkTitle = title,
+                                contentPrompt = contentPrompt.ifEmpty { null },
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable("teacher_homework_list") {
+                            TeacherHomeworkListScreen(
+                                onBack = { navController.popBackStack() },
+                                onAssignNew = { navController.navigate("assign_homework") },
+                                onViewSubmissions = { homeworkId, encodedTitle, encodedJson ->
+                                    navController.navigate(
+                                        "homework_review/$homeworkId/$encodedTitle/$encodedJson"
+                                    )
                                 }
                             )
                         }

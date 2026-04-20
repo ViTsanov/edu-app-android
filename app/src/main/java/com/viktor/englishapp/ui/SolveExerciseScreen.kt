@@ -39,10 +39,13 @@ fun SolveExerciseScreen(
     exerciseId: Int,
     exerciseJson: String,
     onBack: () -> Unit,
+    homeworkId: Int = 0,
     viewModel: SolveExerciseViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
+
+    LaunchedEffect(homeworkId) { viewModel.homeworkId = homeworkId }
 
     // Text-to-speech setup
     val tts = remember { mutableStateOf<android.speech.tts.TextToSpeech?>(null) }

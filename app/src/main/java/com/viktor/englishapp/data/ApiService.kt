@@ -284,4 +284,34 @@ interface ApiService {
         @Path("test_id") testId: Int,
         @Header("Authorization") token: String
     ): Map<String, Any>
+
+    // Classroom detail (student opens a specific classroom)
+    @GET("classrooms/{classroom_id}/detail")
+    suspend fun getClassroomDetail(
+        @Path("classroom_id") classroomId: Int,
+        @Header("Authorization") token: String
+    ): Map<String, Any>
+
+    // Homework submission endpoints (student submits homework)
+    @POST("homework/{homework_id}/submit-text")
+    suspend fun submitHomeworkText(
+        @Path("homework_id") homeworkId: Int,
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Map<String, Any>
+
+    @Multipart
+    @POST("homework/{homework_id}/submit-audio")
+    suspend fun submitHomeworkAudio(
+        @Path("homework_id") homeworkId: Int,
+        @Header("Authorization") token: String,
+        @Part file: okhttp3.MultipartBody.Part
+    ): Map<String, Any>
+
+    // Teacher: see all students' answers for a homework
+    @GET("teacher/homework/{homework_id}/submissions")
+    suspend fun getHomeworkSubmissions(
+        @Path("homework_id") homeworkId: Int,
+        @Header("Authorization") token: String
+    ): List<Map<String, Any>>
 }

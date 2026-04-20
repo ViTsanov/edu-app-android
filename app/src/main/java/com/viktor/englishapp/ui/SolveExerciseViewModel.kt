@@ -31,6 +31,8 @@ class SolveExerciseViewModel : ViewModel() {
 
     var errorMessage by mutableStateOf("")
 
+    var homeworkId: Int = 0
+
     private var mediaRecorder: MediaRecorder? = null
     private var audioFile: File? = null
 
@@ -89,12 +91,24 @@ class SolveExerciseViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.instance.submitAudioExercise(
-                    exerciseId = exerciseId,
-                    file = body,
-                    token = "Bearer $token"
-                )
-                audioEvaluationResult = response.data
+                if (homeworkId > 0) {
+                    // ── Homework audio path ───────────────────────
+                    RetrofitClient.instance.submitHomeworkAudio(
+                        homeworkId = homeworkId,
+                        token = "Bearer $token",
+                        file = body
+                    )
+                    // For homework audio we show a simple success — no live result needed
+                    errorMessage = "✓ Аудиото е предадено успешно!"
+                } else {
+                    // ── Regular audio path ────────────────────────
+                    val response = RetrofitClient.instance.submitAudioExercise(
+                        exerciseId = exerciseId,
+                        file = body,
+                        token = "Bearer $token"
+                    )
+                    audioEvaluationResult = response.data
+                }
             } catch (e: Exception) {
                 errorMessage = "Грешка при оценяване: ${e.message}"
             } finally {
@@ -114,19 +128,45 @@ class SolveExerciseViewModel : ViewModel() {
         viewModelScope.launch {
             isEvaluatingText = true
             try {
-                val request = TextSubmissionRequest(
-                    questions = questions,
-                    expected_answers = expectedAnswers,
-                    user_answers = userAnswers
-                )
-                val response = RetrofitClient.instance.submitTextExercise(
-                    exerciseId = exerciseId,
-                    request = request,
-                    token = "Bearer $token"
-                )
-
-                if (response.status == "success") {
-                    textEvaluationResult = response.data
+                if (homeworkId > 0) {
+                    // ── Homework submission path ──────────────────
+                    val response = RetrofitClient.instance.submitHomeworkText(
+                        homeworkId = homeworkId,
+                        token = "Bearer $token",
+                        body = mapOf(
+                            "questions" to questions,
+                            "expected_answers" to expectedAnswers,
+                            "user_answers" to userAnswers
+                        )
+                    )
+                    // Backend returns the same shape under "data"
+                    @Suppress("UNCHECKED_CAST")
+                    val data = response["data"] as? Map<String, Any>
+                    if (data != null) {
+                        textEvaluationResult = EvaluationResult(
+                            grammar_score = (data["grammar_score"] as? Double)?.toInt() ?: 0,
+                            strengths = data["strengths"] as? String,
+                            weaknesses = data["weaknesses"] as? String,
+                            explanation = data["explanation"] as? String,
+                            is_correct_array = null,
+                            xp_earned = (data["xp_earned"] as? Double)?.toInt()
+                        )
+                    }
+                } else {
+                    // ── Regular exercise submission path ──────────
+                    val request = TextSubmissionRequest(
+                        questions = questions,
+                        expected_answers = expectedAnswers,
+                        user_answers = userAnswers
+                    )
+                    val response = RetrofitClient.instance.submitTextExercise(
+                        exerciseId = exerciseId,
+                        request = request,
+                        token = "Bearer $token"
+                    )
+                    if (response.status == "success") {
+                        textEvaluationResult = response.data
+                    }
                 }
             } catch (e: Exception) {
                 errorMessage = "Грешка: ${e.message}"

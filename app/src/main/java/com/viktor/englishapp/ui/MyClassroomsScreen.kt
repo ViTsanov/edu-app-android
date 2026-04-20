@@ -1,5 +1,6 @@
 package com.viktor.englishapp.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -82,6 +83,7 @@ fun MyClassroomsScreen(
     onBack: () -> Unit,
     onGoToHomework: () -> Unit,
     onGoToJoin: () -> Unit,
+    onOpenClassroom: (Int) -> Unit,
     viewModel: MyClassroomsViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -186,7 +188,8 @@ fun MyClassroomsScreen(
                     items(viewModel.classrooms) { classroom ->
                         StudentClassroomCard(
                             classroom = classroom,
-                            onGoToHomework = onGoToHomework
+                            onGoToHomework = onGoToHomework,
+                            onOpenClassroom = { onOpenClassroom(classroom.id) }
                         )
                     }
                 }
@@ -202,10 +205,11 @@ fun MyClassroomsScreen(
 @Composable
 private fun StudentClassroomCard(
     classroom: StudentClassroom,
-    onGoToHomework: () -> Unit
+    onGoToHomework: () -> Unit,
+    onOpenClassroom: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { onOpenClassroom() },
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

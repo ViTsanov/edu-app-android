@@ -17,10 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.gson.Gson
 import com.viktor.englishapp.data.RetrofitClient
 import com.viktor.englishapp.data.TokenManager
-import com.viktor.englishapp.domain.StudentPathItem
 import kotlinx.coroutines.launch
 
 // ─────────────────────────────────────────────────────────────────
@@ -41,7 +39,7 @@ data class HomeworkItem(
 )
 
 // ─────────────────────────────────────────────────────────────────
-// Student ViewModel
+// STUDENT — ViewModel
 // ─────────────────────────────────────────────────────────────────
 
 class StudentHomeworkViewModel : ViewModel() {
@@ -80,14 +78,14 @@ class StudentHomeworkViewModel : ViewModel() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Student homework screen
+// STUDENT — screen
 // ─────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudentHomeworkScreen(
     onBack: () -> Unit,
-    onStartExercise: (Int, String) -> Unit,  // exerciseId, encodedJson
+    onStartExercise: (Int, String) -> Unit,
     viewModel: StudentHomeworkViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -114,7 +112,10 @@ fun StudentHomeworkScreen(
                 }
             }
             viewModel.errorMessage.isNotEmpty() -> {
-                Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.fillMaxSize().padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(viewModel.errorMessage, color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -122,16 +123,13 @@ fun StudentHomeworkScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            Icons.Default.AssignmentTurnedIn,
-                            null,
+                            Icons.Default.AssignmentTurnedIn, null,
                             modifier = Modifier.size(56.dp),
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                         )
                         Spacer(Modifier.height(12.dp))
-                        Text(
-                            "Нямаш домашни в момента",
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+                        Text("Нямаш домашни в момента",
+                            color = MaterialTheme.colorScheme.secondary)
                     }
                 }
             }
@@ -141,26 +139,20 @@ fun StudentHomeworkScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Summary chips
                     item {
                         val pending = viewModel.homework.count { !it.completed }
                         val overdue = viewModel.homework.count { it.overdue }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (pending > 0) {
-                                SummaryChip("$pending чакащи", Color(0xFF1E40AF))
-                            }
-                            if (overdue > 0) {
-                                SummaryChip("$overdue просрочени", Color(0xFFDC2626))
-                            }
+                            if (pending > 0) SummaryChip("$pending чакащи", Color(0xFF1E40AF))
+                            if (overdue > 0) SummaryChip("$overdue просрочени", Color(0xFFDC2626))
                         }
                         Spacer(Modifier.height(4.dp))
                     }
-
                     items(viewModel.homework) { hw ->
-                        HomeworkCard(
+                        StudentHomeworkCard(
                             hw = hw,
                             onStart = {
-                                val json = hw.contentPrompt ?: return@HomeworkCard
+                                val json = hw.contentPrompt ?: return@StudentHomeworkCard
                                 val encoded = java.net.URLEncoder.encode(json, "UTF-8")
                                 val exId = hw.exerciseId ?: hw.teacherExerciseId ?: 0
                                 onStartExercise(exId, encoded)
@@ -173,33 +165,21 @@ fun StudentHomeworkScreen(
     }
 }
 
-@Composable
-private fun SummaryChip(text: String, color: Color) {
-    Surface(
-        color = color.copy(alpha = 0.1f),
-        shape = MaterialTheme.shapes.extraLarge
-    ) {
-        Text(
-            text,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-    }
-}
+// ─────────────────────────────────────────────────────────────────
+// STUDENT — card (no teacher actions)
+// ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun HomeworkCard(hw: HomeworkItem, onStart: () -> Unit) {
+private fun StudentHomeworkCard(hw: HomeworkItem, onStart: () -> Unit) {
     val bgColor = when {
         hw.completed -> Color(0xFFF0FDF4)
-        hw.overdue -> Color(0xFFFFF5F5)
-        else -> MaterialTheme.colorScheme.surface
+        hw.overdue   -> Color(0xFFFFF5F5)
+        else         -> MaterialTheme.colorScheme.surface
     }
     val borderColor = when {
         hw.completed -> Color(0xFF16A34A)
-        hw.overdue -> Color(0xFFDC2626)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+        hw.overdue   -> Color(0xFFDC2626)
+        else         -> MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
     }
 
     Card(
@@ -215,50 +195,33 @@ private fun HomeworkCard(hw: HomeworkItem, onStart: () -> Unit) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(hw.title, fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        hw.classroomName,
+                    Text(hw.classroomName,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+                        color = MaterialTheme.colorScheme.secondary)
                 }
                 when {
-                    hw.completed -> Icon(
-                        Icons.Default.CheckCircle, null,
-                        tint = Color(0xFF16A34A), modifier = Modifier.size(22.dp)
-                    )
-                    hw.overdue -> Icon(
-                        Icons.Default.Warning, null,
-                        tint = Color(0xFFDC2626), modifier = Modifier.size(22.dp)
-                    )
-                    else -> Icon(
-                        Icons.Default.Assignment, null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    hw.completed -> Icon(Icons.Default.CheckCircle, null,
+                        tint = Color(0xFF16A34A), modifier = Modifier.size(22.dp))
+                    hw.overdue   -> Icon(Icons.Default.Warning, null,
+                        tint = Color(0xFFDC2626), modifier = Modifier.size(22.dp))
+                    else         -> Icon(Icons.Default.Assignment, null,
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                 }
             }
-
-            // Due date
             if (hw.dueDate != null) {
                 Spacer(Modifier.height(6.dp))
-                val dueParts = hw.dueDate.take(10)  // "2024-06-15"
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.CalendarToday, null,
+                    Icon(Icons.Default.CalendarToday, null,
                         modifier = Modifier.size(12.dp),
                         tint = if (hw.overdue) Color(0xFFDC2626)
-                        else MaterialTheme.colorScheme.secondary
-                    )
+                        else MaterialTheme.colorScheme.secondary)
                     Spacer(Modifier.width(4.dp))
-                    Text(
-                        "До: $dueParts",
+                    Text("До: ${hw.dueDate.take(10)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (hw.overdue) Color(0xFFDC2626)
-                        else MaterialTheme.colorScheme.secondary
-                    )
+                        else MaterialTheme.colorScheme.secondary)
                 }
             }
-
             if (!hw.completed && hw.contentPrompt != null) {
                 Spacer(Modifier.height(10.dp))
                 Button(
@@ -277,9 +240,231 @@ private fun HomeworkCard(hw: HomeworkItem, onStart: () -> Unit) {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Shared chip
+// ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SummaryChip(text: String, color: Color) {
+    Surface(color = color.copy(alpha = 0.1f), shape = MaterialTheme.shapes.extraLarge) {
+        Text(text,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = color)
+    }
+}
+
 
 // ─────────────────────────────────────────────────────────────────
-// Teacher — Assign homework screen
+// TEACHER — homework list ViewModel
+// ─────────────────────────────────────────────────────────────────
+
+data class TeacherHomeworkListItem(
+    val id: Int,
+    val title: String,
+    val description: String,
+    val classroomName: String,
+    val classroomId: Int,
+    val contentPrompt: String?,
+    val dueDate: String?,
+    val studentCount: Int,
+    val completedCount: Int
+)
+
+class TeacherHomeworkListViewModel : ViewModel() {
+
+    var homework by mutableStateOf<List<TeacherHomeworkListItem>>(emptyList())
+    var isLoading by mutableStateOf(true)
+    var errorMessage by mutableStateOf("")
+
+    fun load(tokenManager: TokenManager) {
+        viewModelScope.launch {
+            isLoading = true
+            try {
+                val token = tokenManager.getToken() ?: return@launch
+                val response = RetrofitClient.instance.getTeacherHomework("Bearer $token")
+                homework = response.map { map ->
+                    TeacherHomeworkListItem(
+                        id = (map["id"] as? Double)?.toInt() ?: 0,
+                        title = map["title"] as? String ?: "",
+                        description = map["description"] as? String ?: "",
+                        classroomName = map["classroom_name"] as? String ?: "",
+                        classroomId = (map["classroom_id"] as? Double)?.toInt() ?: 0,
+                        contentPrompt = map["content_prompt"] as? String,
+                        dueDate = map["due_date"] as? String,
+                        studentCount = (map["student_count"] as? Double)?.toInt() ?: 0,
+                        completedCount = (map["completed_count"] as? Double)?.toInt() ?: 0
+                    )
+                }
+            } catch (e: Exception) {
+                errorMessage = "Грешка: ${e.message}"
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TEACHER — homework list screen
+// ─────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TeacherHomeworkListScreen(
+    onBack: () -> Unit,
+    onAssignNew: () -> Unit,
+    onViewSubmissions: (Int, String, String) -> Unit,
+    viewModel: TeacherHomeworkListViewModel = viewModel()
+) {
+    val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
+
+    LaunchedEffect(Unit) { viewModel.load(tokenManager) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Домашни на класа") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onAssignNew) {
+                        Icon(Icons.Default.Add, "Ново домашно")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        when {
+            viewModel.isLoading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            viewModel.errorMessage.isNotEmpty() -> {
+                Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Text(viewModel.errorMessage, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            viewModel.homework.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Assignment, null,
+                            modifier = Modifier.size(56.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                        Spacer(Modifier.height(12.dp))
+                        Text("Нямате зададени домашни",
+                            color = MaterialTheme.colorScheme.secondary)
+                        Spacer(Modifier.height(16.dp))
+                        Button(onClick = onAssignNew) { Text("Задай домашно") }
+                    }
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.padding(padding).fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(viewModel.homework) { hw ->
+                        TeacherHomeworkCard(
+                            hw = hw,
+                            onViewSubmissions = {
+                                val encTitle = java.net.URLEncoder.encode(hw.title, "UTF-8")
+                                val encJson = java.net.URLEncoder.encode(
+                                    hw.contentPrompt ?: "", "UTF-8")
+                                onViewSubmissions(hw.id, encTitle, encJson)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TEACHER — homework card with progress + review button
+// ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun TeacherHomeworkCard(
+    hw: TeacherHomeworkListItem,
+    onViewSubmissions: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(hw.title, fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(hw.classroomName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary)
+                }
+                Surface(
+                    color = if (hw.completedCount == hw.studentCount && hw.studentCount > 0)
+                        Color(0xFFDCFCE7) else MaterialTheme.colorScheme.secondaryContainer,
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    Text("${hw.completedCount}/${hw.studentCount}",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (hw.completedCount == hw.studentCount && hw.studentCount > 0)
+                            Color(0xFF16A34A)
+                        else MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+
+            if (hw.studentCount > 0) {
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { hw.completedCount.toFloat() / hw.studentCount },
+                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                    color = if (hw.completedCount == hw.studentCount) Color(0xFF16A34A)
+                    else MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                )
+            }
+
+            hw.dueDate?.let { due ->
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CalendarToday, null,
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.secondary)
+                    Spacer(Modifier.width(4.dp))
+                    Text("До: ${due.take(10)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary)
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Button(onClick = onViewSubmissions, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.People, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Виж отговорите на учениците", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// TEACHER — Assign homework screen
 // ─────────────────────────────────────────────────────────────────
 
 class AssignHomeworkViewModel : ViewModel() {
@@ -306,7 +491,6 @@ class AssignHomeworkViewModel : ViewModel() {
                 val token = tokenManager.getToken() ?: return@launch
                 val cl = RetrofitClient.instance.getTeacherClassrooms("Bearer $token")
                 classrooms = cl.map { mapOf("id" to it.id, "name" to it.name) }
-
                 val ex = RetrofitClient.instance.getExercises("Bearer $token")
                 exercises = ex.map { mapOf("id" to it.id, "title" to it.title) }
             } catch (e: Exception) {
@@ -321,7 +505,6 @@ class AssignHomeworkViewModel : ViewModel() {
         if (title.isBlank()) { errorMessage = "Въведи заглавие."; return }
         if (selectedClassroomId == null) { errorMessage = "Изберете клас."; return }
         if (selectedExerciseId == null) { errorMessage = "Изберете упражнение."; return }
-
         isSaving = true
         errorMessage = ""
         viewModelScope.launch {
@@ -334,7 +517,7 @@ class AssignHomeworkViewModel : ViewModel() {
                         put("description", description)
                         put("classroom_id", selectedClassroomId!!)
                         put("exercise_id", selectedExerciseId!!)
-                        if (dueDateText.isNotBlank()) put("due_date", dueDateText + "T23:59:00")
+                        if (dueDateText.isNotBlank()) put("due_date", "${dueDateText}T23:59:00")
                     }
                 )
                 successMessage = "Домашното е зададено!"
@@ -374,119 +557,84 @@ fun AssignHomeworkScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(16.dp),
+            modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedTextField(
-                value = viewModel.title,
+            OutlinedTextField(value = viewModel.title,
                 onValueChange = { viewModel.title = it },
                 label = { Text("Заглавие на домашното") },
-                modifier = Modifier.fillMaxWidth()
-            )
+                modifier = Modifier.fillMaxWidth())
 
-            OutlinedTextField(
-                value = viewModel.description,
+            OutlinedTextField(value = viewModel.description,
                 onValueChange = { viewModel.description = it },
                 label = { Text("Описание (незадължително)") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2
-            )
+                modifier = Modifier.fillMaxWidth(), minLines = 2)
 
-            // Classroom picker
             Box {
-                OutlinedButton(
-                    onClick = { showClassroomMenu = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                OutlinedButton(onClick = { showClassroomMenu = true },
+                    modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.School, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(viewModel.selectedClassroomName)
                 }
-                DropdownMenu(
-                    expanded = showClassroomMenu,
-                    onDismissRequest = { showClassroomMenu = false }
-                ) {
+                DropdownMenu(expanded = showClassroomMenu,
+                    onDismissRequest = { showClassroomMenu = false }) {
                     viewModel.classrooms.forEach { cl ->
                         val id = (cl["id"] as? Int) ?: 0
                         val name = cl["name"] as? String ?: ""
-                        DropdownMenuItem(
-                            text = { Text(name) },
-                            onClick = {
-                                viewModel.selectedClassroomId = id
-                                viewModel.selectedClassroomName = name
-                                showClassroomMenu = false
-                            }
-                        )
+                        DropdownMenuItem(text = { Text(name) }, onClick = {
+                            viewModel.selectedClassroomId = id
+                            viewModel.selectedClassroomName = name
+                            showClassroomMenu = false
+                        })
                     }
                 }
             }
 
-            // Exercise picker
             Box {
-                OutlinedButton(
-                    onClick = { showExerciseMenu = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                OutlinedButton(onClick = { showExerciseMenu = true },
+                    modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Assignment, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(viewModel.selectedExerciseName)
                 }
-                DropdownMenu(
-                    expanded = showExerciseMenu,
+                DropdownMenu(expanded = showExerciseMenu,
                     onDismissRequest = { showExerciseMenu = false },
-                    modifier = Modifier.heightIn(max = 300.dp)
-                ) {
+                    modifier = Modifier.heightIn(max = 300.dp)) {
                     viewModel.exercises.forEach { ex ->
                         val id = (ex["id"] as? Int) ?: 0
                         val title = ex["title"] as? String ?: ""
-                        DropdownMenuItem(
-                            text = { Text(title, maxLines = 2) },
-                            onClick = {
-                                viewModel.selectedExerciseId = id
-                                viewModel.selectedExerciseName = title
-                                showExerciseMenu = false
-                            }
-                        )
+                        DropdownMenuItem(text = { Text(title, maxLines = 2) }, onClick = {
+                            viewModel.selectedExerciseId = id
+                            viewModel.selectedExerciseName = title
+                            showExerciseMenu = false
+                        })
                     }
                 }
             }
 
-            // Due date (simple text input — format YYYY-MM-DD)
-            OutlinedTextField(
-                value = viewModel.dueDateText,
+            OutlinedTextField(value = viewModel.dueDateText,
                 onValueChange = { viewModel.dueDateText = it },
                 label = { Text("Краен срок (ГГГГ-ММ-ДД, незадължително)") },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("2024-06-15") },
-                leadingIcon = {
-                    Icon(Icons.Default.CalendarToday, null, Modifier.size(18.dp))
-                }
-            )
+                leadingIcon = { Icon(Icons.Default.CalendarToday, null, Modifier.size(18.dp)) })
 
-            if (viewModel.errorMessage.isNotEmpty()) {
+            if (viewModel.errorMessage.isNotEmpty())
                 Text(viewModel.errorMessage, color = MaterialTheme.colorScheme.error)
-            }
-            if (viewModel.successMessage.isNotEmpty()) {
+            if (viewModel.successMessage.isNotEmpty())
                 Text(viewModel.successMessage, color = MaterialTheme.colorScheme.primary)
-            }
 
             Spacer(Modifier.weight(1f))
 
             Button(
-                onClick = {
-                    viewModel.assign(tokenManager = tokenManager, onSuccess = onBack)
-                },
+                onClick = { viewModel.assign(tokenManager = tokenManager, onSuccess = onBack) },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = !viewModel.isSaving
             ) {
                 if (viewModel.isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary)
                 } else {
                     Icon(Icons.Default.Send, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
