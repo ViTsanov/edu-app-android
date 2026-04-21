@@ -357,7 +357,17 @@ private fun InfoChip(
     text: String
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.secondary)
+        Icon(
+            icon, null,
+            modifier = Modifier.size(13.dp),
+            tint = MaterialTheme.colorScheme.secondary
+        )
+        Spacer(Modifier.width(3.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.secondary
+        )
     }
 }
 

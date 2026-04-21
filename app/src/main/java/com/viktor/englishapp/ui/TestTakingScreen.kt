@@ -61,6 +61,7 @@ class TestTakingViewModel : ViewModel() {
     val userAnswers = mutableMapOf<Int, List<String>>()
 
     fun loadTest(token: String, testId: Int) {
+        if (testInfo != null) return
         viewModelScope.launch {
             isLoading = true
             try {
@@ -228,6 +229,7 @@ fun TestTakingScreen(
                         // Animated exercise content
                         AnimatedContent(
                             targetState = currentExerciseIndex,
+                            modifier = Modifier.weight(1f),
                             transitionSpec = {
                                 slideInHorizontally { it } + fadeIn() togetherWith
                                         slideOutHorizontally { -it } + fadeOut()
@@ -243,8 +245,6 @@ fun TestTakingScreen(
                                 }
                             )
                         }
-
-                        Spacer(Modifier.weight(1f))
 
                         // Navigation buttons
                         Row(

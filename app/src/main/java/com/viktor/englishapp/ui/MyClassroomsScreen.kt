@@ -83,7 +83,7 @@ fun MyClassroomsScreen(
     onBack: () -> Unit,
     onGoToHomework: () -> Unit,
     onGoToJoin: () -> Unit,
-    onOpenClassroom: (Int) -> Unit,
+    onOpenClassroom: (Int) -> Unit,           // receives classroom ID
     viewModel: MyClassroomsViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -101,7 +101,6 @@ fun MyClassroomsScreen(
                     }
                 },
                 actions = {
-                    // Quick access to homework
                     IconButton(onClick = onGoToHomework) {
                         Icon(Icons.Default.Assignment, "Домашни")
                     }
@@ -124,7 +123,6 @@ fun MyClassroomsScreen(
                 }
             }
             viewModel.classrooms.isEmpty() -> {
-                // Empty state
                 Box(
                     Modifier.fillMaxSize().padding(24.dp),
                     contentAlignment = Alignment.Center
@@ -137,8 +135,7 @@ fun MyClassroomsScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    Icons.Default.School,
-                                    null,
+                                    Icons.Default.School, null,
                                     modifier = Modifier.size(36.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
@@ -167,13 +164,10 @@ fun MyClassroomsScreen(
             }
             else -> {
                 LazyColumn(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize(),
+                    modifier = Modifier.padding(padding).fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Join new class button at top
                     item {
                         OutlinedButton(
                             onClick = onGoToJoin,
@@ -186,9 +180,9 @@ fun MyClassroomsScreen(
                     }
 
                     items(viewModel.classrooms) { classroom ->
+                        // FIX: pass onOpenClassroom capturing classroom.id in the lambda
                         StudentClassroomCard(
                             classroom = classroom,
-                            onGoToHomework = onGoToHomework,
                             onOpenClassroom = { onOpenClassroom(classroom.id) }
                         )
                     }
@@ -200,15 +194,16 @@ fun MyClassroomsScreen(
 
 // ─────────────────────────────────────────────────────────────────
 // Classroom card
+// onGoToHomework removed — ClassroomDetailScreen shows homework
 // ─────────────────────────────────────────────────────────────────
 
 @Composable
 private fun StudentClassroomCard(
     classroom: StudentClassroom,
-    onGoToHomework: () -> Unit,
-    onOpenClassroom: () -> Unit,
+    onOpenClassroom: () -> Unit               // () -> Unit: id already captured above
 ) {
     Card(
+        // FIX: was onOpenClassroom(classroom.id) → "Too many arguments"
         modifier = Modifier.fillMaxWidth().clickable { onOpenClassroom() },
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
@@ -279,25 +274,13 @@ private fun StudentClassroomCard(
                 )
             }
 
-            // Homework button if there are assignments
-            if (classroom.homeworkCount > 0) {
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = onGoToHomework,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.Assignment,
-                        null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text("Виж домашните (${classroom.homeworkCount})")
-                }
-            }
+            // Tap hint — no button needed, the whole card is clickable
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Натисни за домашни и тестове →",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary
+            )
         }
     }
 }
@@ -310,8 +293,7 @@ private fun ClassroomStat(
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
-            icon,
-            null,
+            icon, null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp)
         )
