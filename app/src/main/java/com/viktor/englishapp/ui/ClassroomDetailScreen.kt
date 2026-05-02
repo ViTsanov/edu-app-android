@@ -1,6 +1,5 @@
 package com.viktor.englishapp.ui
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -145,6 +143,11 @@ fun ClassroomDetailScreen(
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
+    // Read role from shared prefs — teachers (role 2,4) should NOT see solve button
+    val roleId = remember {
+        context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            .getInt("role_id", 1)
+    }
     var selectedTab by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(classroomId) { viewModel.load(tokenManager, classroomId) }
@@ -205,10 +208,12 @@ fun ClassroomDetailScreen(
                     when (selectedTab) {
                         0 -> HomeworkTab(
                             homework = detail.homework,
+                            isTeacher = roleId in listOf(2, 4),
                             onOpen = onOpenHomework
                         )
                         1 -> TestsTab(
                             tests = detail.tests,
+                            isTeacher = roleId in listOf(2, 4),
                             onOpen = onOpenTest
                         )
                     }
@@ -271,6 +276,7 @@ private fun ClassroomHeader(detail: ClassroomDetailData) {
 @Composable
 private fun HomeworkTab(
     homework: List<HomeworkDetailItem>,
+    isTeacher: Boolean,
     onOpen: (HomeworkDetailItem) -> Unit
 ) {
     if (homework.isEmpty()) {
@@ -306,7 +312,7 @@ private fun HomeworkTab(
         }
 
         items(homework) { hw ->
-            HomeworkDetailCard(hw = hw, onOpen = { onOpen(hw) })
+        StudentHwDetailCard(hw = hw, isTeacher = isTeacher, onOpen = { onOpen(hw) })
         }
     }
 }
@@ -328,8 +334,9 @@ private fun StatusChip(text: String, color: Color) {
 }
 
 @Composable
-private fun HomeworkDetailCard(
+private fun StudentHwDetailCard(
     hw: HomeworkDetailItem,
+    isTeacher: Boolean,
     onOpen: () -> Unit
 ) {
     val bgColor = when {
@@ -429,33 +436,46 @@ private fun HomeworkDetailCard(
                 }
             }
 
-            // Action button
-            if (!hw.submitted && hw.contentPrompt != null) {
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = onOpen,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = if (hw.overdue)
-                        ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
-                    else ButtonDefaults.buttonColors()
-                ) {
-                    Icon(Icons.Default.PlayArrow, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
+            // Action button — shown ONLY for students
+            if (!isTeacher) {
+                if (!hw.submitted && hw.contentPrompt != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = onOpen,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = if (hw.overdue)
+                            ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                        else ButtonDefaults.buttonColors()
+                    ) {
+                        Icon(Icons.Default.PlayArrow, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            if (hw.overdue) "Предай (закъснение)"
+                            else "Реши домашното",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                } else if (hw.submitted) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onOpen,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Visibility, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Виж отговорите си")
+                    }
+                }
+            } else {
+                // Teacher view — show submission status only, no action button
+                if (hw.submitted) {
+                    Spacer(Modifier.height(6.dp))
                     Text(
-                        if (hw.overdue) "Предай (закъснение)"
-                        else "Реши домашното",
+                        "Ученикът е предал",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF16A34A),
                         fontWeight = FontWeight.Bold
                     )
-                }
-            } else if (hw.submitted) {
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = onOpen,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Visibility, null, Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Виж отговорите си")
                 }
             }
         }
@@ -469,6 +489,7 @@ private fun HomeworkDetailCard(
 @Composable
 private fun TestsTab(
     tests: List<ClassroomTestItem>,
+    isTeacher: Boolean,
     onOpen: (Int) -> Unit
 ) {
     if (tests.isEmpty()) {
@@ -492,7 +513,7 @@ private fun TestsTab(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(tests) { test ->
-            TestDetailCard(test = test, onOpen = { onOpen(test.id) })
+            TestDetailCard(test = test, isTeacher = isTeacher, onOpen = { onOpen(test.id) })
         }
     }
 }
@@ -500,6 +521,7 @@ private fun TestsTab(
 @Composable
 private fun TestDetailCard(
     test: ClassroomTestItem,
+    isTeacher: Boolean,
     onOpen: () -> Unit
 ) {
     val bgColor = when {
@@ -585,7 +607,7 @@ private fun TestDetailCard(
                 }
             }
 
-            if (test.isOpen && !test.isCompleted) {
+            if (test.isOpen && !test.isCompleted && !isTeacher) {
                 Spacer(Modifier.height(10.dp))
                 Button(
                     onClick = onOpen,
@@ -600,6 +622,14 @@ private fun TestDetailCard(
                 Text(
                     "Завършен  ·  ${test.myScore}/100",
                     style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFF16A34A),
+                    fontWeight = FontWeight.Bold
+                )
+            } else if (isTeacher && test.isOpen) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Тестът е отворен за учениците",
+                    style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF16A34A),
                     fontWeight = FontWeight.Bold
                 )

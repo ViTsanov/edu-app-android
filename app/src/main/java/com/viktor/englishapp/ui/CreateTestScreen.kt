@@ -1,6 +1,5 @@
 package com.viktor.englishapp.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,7 +24,6 @@ import com.google.gson.Gson
 import com.viktor.englishapp.data.RetrofitClient
 import com.viktor.englishapp.data.TokenManager
 import com.viktor.englishapp.domain.ExerciseContent
-import com.viktor.englishapp.domain.ExerciseResponse
 import kotlinx.coroutines.launch
 
 // ─────────────────────────────────────────────────────────────────
@@ -37,9 +34,8 @@ data class SelectableExercise(
     val id: Int,
     val title: String,
     val contentPrompt: String,
-    val source: String,           // "approved" or "teacher"
+    val source: String,
     val parsed: ExerciseContent?,
-    // Which question indices the teacher has selected (empty = none)
     val selectedQuestions: MutableSet<Int> = mutableSetOf()
 )
 
@@ -49,25 +45,20 @@ data class SelectableExercise(
 
 class CreateTestViewModel : ViewModel() {
 
-    // Step 1: Test details
     var testTitle by mutableStateOf("")
     var timeLimitMinutes by mutableStateOf(30)
     var selectedClassroomId by mutableStateOf<Int?>(null)
     var selectedClassroomName by mutableStateOf("Изберете клас")
 
-    // Step 2: Exercise browsing
     var approvedExercises = mutableStateListOf<SelectableExercise>()
     var teacherExercises = mutableStateListOf<SelectableExercise>()
     var isLoadingExercises by mutableStateOf(false)
 
-    // Added exercises (exercises selected for this test)
     var addedExercises = mutableStateListOf<SelectableExercise>()
 
-    // Classroom list
     var classrooms = mutableStateListOf<Map<String, Any>>()
 
-    // UI state
-    var currentStep by mutableStateOf(1)   // 1 = details, 2 = pick exercises, 3 = review
+    var currentStep by mutableStateOf(1)
     var isSaving by mutableStateOf(false)
     var errorMessage by mutableStateOf("")
     var successMessage by mutableStateOf("")
@@ -110,7 +101,6 @@ class CreateTestViewModel : ViewModel() {
                 myExercises.forEach { map ->
                     val id = (map["id"] as? Double)?.toInt() ?: 0
                     val title = map["title"] as? String ?: ""
-                    // Fetch content_prompt separately if needed; for now use title
                     teacherExercises.add(
                         SelectableExercise(
                             id = id,
@@ -147,7 +137,6 @@ class CreateTestViewModel : ViewModel() {
 
     fun addExerciseToTest(exercise: SelectableExercise) {
         if (exercise.selectedQuestions.isEmpty()) {
-            // Select all questions by default
             val count = exercise.parsed?.content?.size ?: 1
             exercise.selectedQuestions.addAll((0 until count))
         }
@@ -189,7 +178,6 @@ class CreateTestViewModel : ViewModel() {
                     if (ex.selectedQuestions.isNotEmpty() &&
                         ex.selectedQuestions.size < (ex.parsed?.content?.size ?: 1)
                     ) {
-                        // Partial selection — save selected questions as a new TeacherExercise
                         val selectedContent = ex.parsed?.content
                             ?.filterIndexed { i, _ -> ex.selectedQuestions.contains(i) }
                             ?: emptyList()
@@ -221,7 +209,6 @@ class CreateTestViewModel : ViewModel() {
                             )
                         )
                     } else {
-                        // Full exercise
                         val body: Map<String, Any> = if (ex.source == "approved") {
                             mapOf("exercise_id" to ex.id, "order_index" to orderIndex)
                         } else {
@@ -334,7 +321,6 @@ private fun StepOneDetails(
         )
         Spacer(Modifier.height(16.dp))
 
-        // Time limit slider
         Text(
             "Времево ограничение: ${viewModel.timeLimitMinutes} минути (0 = без ограничение)",
             style = MaterialTheme.typography.bodyMedium
@@ -348,7 +334,6 @@ private fun StepOneDetails(
         )
         Spacer(Modifier.height(16.dp))
 
-        // Classroom picker
         Text("Клас:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
         Spacer(Modifier.height(6.dp))
         Box {
@@ -516,7 +501,6 @@ private fun SelectableExerciseCard(
     onRemove: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    // Track selections locally to trigger recomposition
     var selectionVersion by remember { mutableStateOf(0) }
 
     val borderColor = if (isAdded) MaterialTheme.colorScheme.primary
@@ -534,7 +518,6 @@ private fun SelectableExerciseCard(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
 
-            // Header row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -570,7 +553,6 @@ private fun SelectableExerciseCard(
 
                 if (expanded) {
                     Spacer(Modifier.height(4.dp))
-                    // Show each task with a checkbox
                     exercise.parsed.content.forEachIndexed { index, question ->
                         val isSelected = exercise.selectedQuestions.contains(index)
                         Row(
@@ -578,7 +560,7 @@ private fun SelectableExerciseCard(
                                 .fillMaxWidth()
                                 .clickable {
                                     onToggleQuestion(index)
-                                    selectionVersion++ // force recompose
+                                    selectionVersion++
                                 }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.Top
@@ -669,7 +651,6 @@ private fun StepThreeReview(
         )
         Spacer(Modifier.height(16.dp))
 
-        // Summary card
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(

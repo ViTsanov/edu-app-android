@@ -50,9 +50,6 @@ class TeacherHomeworkReviewViewModel : ViewModel() {
     var submissions by mutableStateOf<List<HomeworkStudentSubmission>>(emptyList())
     var isLoading by mutableStateOf(true)
     var errorMessage by mutableStateOf("")
-    var homeworkTitle by mutableStateOf("")
-
-    // The exercise content for showing questions alongside answers
     var exerciseContent by mutableStateOf<ExerciseContent?>(null)
 
     fun load(tokenManager: TokenManager, homeworkId: Int, contentPrompt: String?) {
@@ -342,22 +339,49 @@ private fun StudentSubmissionCard(
                 HorizontalDivider()
                 Spacer(Modifier.height(12.dp))
 
-                // Q&A review
-                questions.forEachIndexed { index, question ->
-                    val userAnswer = submission.userAnswers.getOrElse(index) { "" }
-                    val correct = correctAnswers.getOrElse(index) { "" }
-                    val isCorrect = userAnswer.trim().equals(correct.trim(), ignoreCase = true)
-
-                    QuestionAnswerRow(
-                        index = index,
-                        question = question,
-                        userAnswer = userAnswer,
-                        correctAnswer = correct,
-                        isCorrect = isCorrect
-                    )
-                    if (index < questions.size - 1) {
-                        Spacer(Modifier.height(8.dp))
+                if (questions.isNotEmpty()) {
+                    // Q&A review — questions available
+                    questions.forEachIndexed { index, question ->
+                        val userAnswer = submission.userAnswers.getOrElse(index) { "" }
+                        val correct = correctAnswers.getOrElse(index) { "" }
+                        val isCorrect = userAnswer.trim().equals(correct.trim(), ignoreCase = true)
+                        QuestionAnswerRow(
+                            index = index,
+                            question = question,
+                            userAnswer = userAnswer,
+                            correctAnswer = correct,
+                            isCorrect = isCorrect
+                        )
+                        if (index < questions.size - 1) Spacer(Modifier.height(8.dp))
                     }
+                } else if (submission.userAnswers.isNotEmpty()) {
+                    // No questions available (e.g. free-text or speaking) — show raw answers
+                    Text(
+                        "Отговор на ученика:",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    submission.userAnswers.forEachIndexed { index, answer ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                if (submission.userAnswers.size > 1) "${index + 1}. $answer" else answer,
+                                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (index < submission.userAnswers.size - 1) Spacer(Modifier.height(4.dp))
+                    }
+                } else {
+                    Text(
+                        "(Ученикът не е дал отговор.)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
 
                 // AI feedback

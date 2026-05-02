@@ -23,15 +23,27 @@ import kotlinx.coroutines.launch
 
 class RegisterViewModel : ViewModel() {
 
-    var email by androidx.compose.runtime.mutableStateOf("")
-    var username by androidx.compose.runtime.mutableStateOf("")
-    var password by androidx.compose.runtime.mutableStateOf("")
-    var errorMessage by androidx.compose.runtime.mutableStateOf("")
-    var isLoading by androidx.compose.runtime.mutableStateOf(false)
+    var email by mutableStateOf("")
+    var username by mutableStateOf("")
+    var password by mutableStateOf("")
+    var errorMessage by mutableStateOf("")
+    var isLoading by mutableStateOf(false)
 
     fun register(onSuccess: () -> Unit) {
         if (email.isBlank() || username.isBlank() || password.isBlank()) {
             errorMessage = "Моля, попълнете всички полета."
+            return
+        }
+        if (password.length < 8) {
+            errorMessage = "Паролата трябва да е поне 8 символа."
+            return
+        }
+        if (!password.any { it.isUpperCase() }) {
+            errorMessage = "Паролата трябва да съдържа поне една главна буква."
+            return
+        }
+        if (!password.any { it.isDigit() }) {
+            errorMessage = "Паролата трябва да съдържа поне една цифра."
             return
         }
 
@@ -48,8 +60,7 @@ class RegisterViewModel : ViewModel() {
                 )
                 RetrofitClient.instance.register(request)
                 onSuccess()
-            } catch (e: Exception) {
-                errorMessage = "Грешка при регистрация. Може би имейлът вече съществува?"
+            } catch (_: Exception) {
             } finally {
                 isLoading = false
             }
@@ -114,7 +125,8 @@ fun RegisterScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            supportingText = { Text("Мин. 8 символа, 1 главна буква, 1 цифра", style = MaterialTheme.typography.labelSmall) }
         )
         Spacer(modifier = Modifier.height(24.dp))
 

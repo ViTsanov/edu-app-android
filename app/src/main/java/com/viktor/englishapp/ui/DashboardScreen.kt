@@ -2,6 +2,10 @@ package com.viktor.englishapp.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,10 +22,6 @@ import com.viktor.englishapp.data.TokenManager
 import com.viktor.englishapp.domain.UserProfile
 import kotlinx.coroutines.launch
 
-// ─────────────────────────────────────────────────────────────────
-// ViewModel
-// ─────────────────────────────────────────────────────────────────
-
 class DashboardViewModel : ViewModel() {
 
     var userProfile by mutableStateOf<UserProfile?>(null)
@@ -30,11 +30,7 @@ class DashboardViewModel : ViewModel() {
 
     fun loadProfile(tokenManager: TokenManager) {
         val token = tokenManager.getToken()
-        if (token == null) {
-            errorMessage = "Липсва токен за достъп."
-            isLoading = false
-            return
-        }
+        if (token == null) { errorMessage = "Липсва токен."; isLoading = false; return }
         viewModelScope.launch {
             try {
                 userProfile = RetrofitClient.instance.getMyProfile("Bearer $token")
@@ -47,18 +43,13 @@ class DashboardViewModel : ViewModel() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Screen
-// ─────────────────────────────────────────────────────────────────
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onLogout: () -> Unit,
     onGoToProfile: () -> Unit,
-    onGoToExpert: () -> Unit,
-    onGoToExpertActive: () -> Unit,
-    onGoToExercises: () -> Unit,
+    onGoToExpert: () -> Unit,            // → pending_exercises
+    onGoToExpertActive: () -> Unit,      // → expert_active_exercises
     onGoToClassrooms: () -> Unit,
     onCreateExercise: () -> Unit,
     onCreateTest: () -> Unit,
@@ -68,14 +59,13 @@ fun DashboardScreen(
     onGoToHomework: () -> Unit,
     onGoToAssignHomework: () -> Unit,
     onGoToTestManagement: () -> Unit,
+    onGoToExpertPanel: () -> Unit = {},  // NEW → expert_panel (AI generator)
     viewModel: DashboardViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadProfile(tokenManager)
-    }
+    LaunchedEffect(Unit) { viewModel.loadProfile(tokenManager) }
 
     Scaffold(
         topBar = {
@@ -84,8 +74,7 @@ fun DashboardScreen(
                 actions = {
                     IconButton(onClick = onGoToProfile) {
                         Icon(
-                            Icons.Default.AccountCircle,
-                            contentDescription = "Профил",
+                            Icons.Default.AccountCircle, "Профил",
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -97,6 +86,7 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -104,34 +94,28 @@ fun DashboardScreen(
             when {
                 viewModel.isLoading -> {
                     CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(Modifier.height(16.dp))
                     Text("Зареждане на профила...")
                 }
-
                 viewModel.errorMessage.isNotEmpty() -> {
-                    Text(
-                        text = viewModel.errorMessage,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(viewModel.errorMessage, color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(16.dp))
                     Button(onClick = onLogout) { Text("Обратно към Вход") }
                 }
-
                 else -> {
                     val profile = viewModel.userProfile
 
                     Text(
-                        text = "Здравей, ${profile?.username}! 👋",
+                        "Здравей, ${profile?.username}! 👋",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = profile?.email ?: "",
+                        profile?.email ?: "",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.secondary
                     )
-
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(Modifier.height(32.dp))
 
                     when (profile?.role_id) {
 
@@ -142,72 +126,20 @@ fun DashboardScreen(
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Button(
-                                onClick = onGoToClassrooms,
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
-                            ) {
-                                Icon(Icons.Default.School, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("МОИ КЛАСОВЕ")
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Button(
-                                onClick = onCreateExercise,
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondary
-                                )
-                            ) {
-                                Icon(Icons.Default.Edit, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("СЪЗДАЙ НОВО УПРАЖНЕНИЕ")
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Button(
-                                onClick = onCreateTest,
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiary
-                                )
-                            ) {
-                                Icon(Icons.Default.Quiz, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("СЪЗДАЙ НОВ ТЕСТ")
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            OutlinedButton(
-                                onClick = onGoToExpertActive,
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
-                            ) {
-                                Icon(Icons.Default.List, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("АКТИВНИ УПРАЖНЕНИЯ")
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            OutlinedButton(
-                                onClick = onGoToAssignHomework,
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
-                            ) {
-                                Icon(Icons.Default.Assignment, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("ДОМАШНИ НА КЛАСА")
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            OutlinedButton(
-                                onClick = onGoToTestManagement,
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
-                            ) {
-                                Icon(Icons.Default.Quiz, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("УПРАВЛЕНИЕ НА ТЕСТОВЕ")
-                            }
+                            Spacer(Modifier.height(16.dp))
+                            DashBtn(onClick = onGoToClassrooms, icon = Icons.Default.School, label = "МОИ КЛАСОВЕ")
+                            Spacer(Modifier.height(12.dp))
+                            DashBtn(onClick = onCreateExercise, icon = Icons.Default.Edit, label = "СЪЗДАЙ НОВО УПРАЖНЕНИЕ",
+                                containerColor = MaterialTheme.colorScheme.secondary)
+                            Spacer(Modifier.height(12.dp))
+                            DashBtn(onClick = onCreateTest, icon = Icons.Default.Quiz, label = "СЪЗДАЙ НОВ ТЕСТ",
+                                containerColor = MaterialTheme.colorScheme.tertiary)
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedDashBtn(onClick = onGoToExpertActive, icon = Icons.AutoMirrored.Filled.List, label = "АКТИВНИ УПРАЖНЕНИЯ")
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedDashBtn(onClick = onGoToAssignHomework, icon = Icons.AutoMirrored.Filled.Assignment, label = "ДОМАШНИ НА КЛАСА")
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedDashBtn(onClick = onGoToTestManagement, icon = Icons.Default.Quiz, label = "УПРАВЛЕНИЕ НА ТЕСТОВЕ")
                         }
 
                         // ── EXPERT ────────────────────────────────
@@ -217,29 +149,27 @@ fun DashboardScreen(
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(Modifier.height(16.dp))
 
-                            Button(
+                            // ← THIS BUTTON WAS MISSING
+                            DashBtn(
+                                onClick = onGoToExpertPanel,
+                                icon = Icons.Default.AutoAwesome,
+                                label = "AI ГЕНЕРАТОР НА УПРАЖНЕНИЯ"
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            DashBtn(
                                 onClick = onGoToExpert,
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
-                            ) {
-                                Icon(Icons.Default.PendingActions, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("ЧАКАЩИ ОДОБРЕНИЕ")
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Button(
+                                icon = Icons.Default.PendingActions,
+                                label = "ЧАКАЩИ ОДОБРЕНИЕ"
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            DashBtn(
                                 onClick = onGoToExpertActive,
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondary
-                                )
-                            ) {
-                                Icon(Icons.Default.List, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("АКТИВНИ УПРАЖНЕНИЯ")
-                            }
+                                icon = Icons.AutoMirrored.Filled.List,
+                                label = "АКТИВНИ УПРАЖНЕНИЯ",
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            )
                         }
 
                         // ── STUDENT (default) ─────────────────────
@@ -249,71 +179,64 @@ fun DashboardScreen(
                                 shape = MaterialTheme.shapes.medium
                             ) {
                                 Text(
-                                    text = "Ниво ${profile?.english_level ?: "A1"}  ·  ${profile?.total_xp} XP 🏆",
+                                    "Ниво ${profile?.english_level ?: "A1"}  ·  ${profile?.total_xp} XP 🏆",
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            Button(
-                                onClick = onGoToPath,
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary
-                                )
-                            ) {
-                                Icon(Icons.Default.Map, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("МОЯ УЧЕБЕН ПЪТ")
-                            }
-
+                            Spacer(Modifier.height(24.dp))
+                            DashBtn(onClick = onGoToPath, icon = Icons.Default.Map, label = "МОЯ УЧЕБЕН ПЪТ")
                             Spacer(Modifier.height(12.dp))
-
-                            // BUG FIX: Spacer and Text are now INSIDE the lambda
-                            OutlinedButton(
-                                onClick = onGoToMyClassrooms,
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
-                            ) {
-                                Icon(Icons.Default.School, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("МОИТЕ КЛАСОВЕ")
-                            }
-
+                            OutlinedDashBtn(onClick = onGoToMyClassrooms, icon = Icons.Default.School, label = "МОИТЕ КЛАСОВЕ")
                             Spacer(Modifier.height(12.dp))
-
-                            OutlinedButton(
-                                onClick = onGoToHomework,
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
-                            ) {
-                                Icon(Icons.Default.Assignment, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("ДОМАШНИ")
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            OutlinedButton(
-                                onClick = onJoinClassroom,
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
-                            ) {
-                                Icon(Icons.Default.School, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("ПРИСЪЕДИНИ СЕ КЪМ КЛАС")
-                            }
+                            OutlinedDashBtn(onClick = onGoToHomework, icon = Icons.AutoMirrored.Filled.Assignment, label = "ДОМАШНИ")
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedDashBtn(onClick = onJoinClassroom, icon = Icons.Default.School, label = "ПРИСЪЕДИНИ СЕ КЪМ КЛАС")
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    OutlinedButton(onClick = onLogout) {
-                        Text("Изход от профила")
-                    }
+                    Spacer(Modifier.height(32.dp))
+                    OutlinedButton(onClick = onLogout) { Text("Изход от профила") }
                 }
             }
         }
+    }
+}
+
+// ── Small helpers to avoid repetition ────────────────────────────
+
+@Composable
+private fun DashBtn(
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(56.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = containerColor)
+    ) {
+        Icon(icon, null)
+        Spacer(Modifier.width(8.dp))
+        Text(label, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun OutlinedDashBtn(
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(56.dp)
+    ) {
+        Icon(icon, null)
+        Spacer(Modifier.width(8.dp))
+        Text(label)
     }
 }

@@ -1,7 +1,6 @@
 package com.viktor.englishapp
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -77,13 +76,23 @@ class MainActivity : ComponentActivity() {
                         composable("login") {
                             LoginScreen(
                                 onLoginSuccess = {
+                                    // Start session immediately after login
+                                    // onStart() cannot do this because token doesn't exist yet at that point
+                                    val token = tokenManager.getToken()
+                                    if (token != null) {
+                                        lifecycleScope.launch {
+                                            try {
+                                                val response = RetrofitClient.instance.startSession("Bearer $token")
+                                                val sessionId = response["session_id"] as? Int ?: return@launch
+                                                sessionManager.saveSessionId(sessionId)
+                                            } catch (_: Exception) {}
+                                        }
+                                    }
                                     navController.navigate("dashboard") {
                                         popUpTo("login") { inclusive = true }
                                     }
                                 },
-                                onNavigateToRegister = {
-                                    navController.navigate("register")
-                                }
+                                onNavigateToRegister = { navController.navigate("register") }
                             )
                         }
 
@@ -95,9 +104,7 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("register") { inclusive = true }
                                     }
                                 },
-                                onNavigateToLogin = {
-                                    navController.popBackStack()
-                                }
+                                onNavigateToLogin = { navController.popBackStack() }
                             )
                         }
 
@@ -114,7 +121,6 @@ class MainActivity : ComponentActivity() {
                                 onGoToProfile = { navController.navigate("profile") },
                                 onGoToExpert = { navController.navigate("pending_exercises") },
                                 onGoToExpertActive = { navController.navigate("expert_active_exercises") },
-                                onGoToExercises = { navController.navigate("exercise_list") },
                                 onGoToClassrooms = { navController.navigate("classroom_management") },
                                 onCreateExercise = { navController.navigate("create_teacher_exercise") },
                                 onCreateTest = { navController.navigate("create_test") },
@@ -122,9 +128,11 @@ class MainActivity : ComponentActivity() {
                                 onJoinClassroom = { navController.navigate("join_classroom") },
                                 onGoToMyClassrooms = { navController.navigate("my_classrooms") },
                                 onGoToHomework = { navController.navigate("student_homework") },
-                                // FIX: was nested onGoToAssignHomework = { onGoToAssignHomework = {...} }
+                                // FIX: was nested lambda → nested lambda
                                 onGoToAssignHomework = { navController.navigate("teacher_homework_list") },
-                                onGoToTestManagement = { navController.navigate("test_management") }
+                                onGoToTestManagement = { navController.navigate("test_management") },
+                                // NEW: AI generator for experts
+                                onGoToExpertPanel = { navController.navigate("expert_panel") }
                             )
                         }
 
@@ -138,11 +146,11 @@ class MainActivity : ComponentActivity() {
                             ExpertScreen(
                                 onBack = { navController.popBackStack() },
                                 onNavigateToPending = { navController.navigate("pending_exercises") },
-                                onCreateManualExercise = { navController.navigate("create_teacher_exercise") }
+                                onCreateManualExercise = { navController.navigate("create_expert_exercise") }
                             )
                         }
 
-                        // ── SCREEN 6: PENDING EXERCISES (expert review) ──────
+                        // ── SCREEN 6: PENDING EXERCISES ──────────────────────
                         composable("pending_exercises") {
                             PendingExercisesScreen(
                                 onBack = { navController.popBackStack() },
@@ -173,21 +181,17 @@ class MainActivity : ComponentActivity() {
                         ) { backStackEntry ->
                             val exerciseId =
                                 backStackEntry.arguments?.getInt("exerciseId") ?: return@composable
-                            val titleArg = backStackEntry.arguments?.getString("title") ?: ""
-                            val contentArg = backStackEntry.arguments?.getString("content") ?: ""
                             val title = String(
                                 android.util.Base64.decode(
-                                    titleArg,
+                                    backStackEntry.arguments?.getString("title") ?: "",
                                     android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
-                                ),
-                                Charsets.UTF_8
+                                ), Charsets.UTF_8
                             )
                             val content = String(
                                 android.util.Base64.decode(
-                                    contentArg,
+                                    backStackEntry.arguments?.getString("content") ?: "",
                                     android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP
-                                ),
-                                Charsets.UTF_8
+                                ), Charsets.UTF_8
                             )
                             EditExerciseScreen(
                                 exerciseId = exerciseId,
@@ -220,8 +224,9 @@ class MainActivity : ComponentActivity() {
                             )
                         ) { backStackEntry ->
                             val exerciseId = backStackEntry.arguments?.getInt("id") ?: 0
-                            val encodedJson = backStackEntry.arguments?.getString("json") ?: ""
-                            val decodedJson = java.net.URLDecoder.decode(encodedJson, "UTF-8")
+                            val decodedJson = java.net.URLDecoder.decode(
+                                backStackEntry.arguments?.getString("json") ?: "", "UTF-8"
+                            )
                             SolveExerciseScreen(
                                 exerciseId = exerciseId,
                                 exerciseJson = decodedJson,
@@ -232,7 +237,14 @@ class MainActivity : ComponentActivity() {
 
                         // ── SCREEN 10: EXPERT ACTIVE EXERCISES ──────────────
                         composable("expert_active_exercises") {
-                            ExpertActiveExercisesScreen(onBack = { navController.popBackStack() })
+                            ExpertActiveExercisesScreen(
+                                onBack = { navController.popBackStack() },
+                                onEditTeacherExercise = { id, title, contentJson ->
+                                    val encTitle = java.net.URLEncoder.encode(title, "UTF-8")
+                                    val encJson = java.net.URLEncoder.encode(contentJson, "UTF-8")
+                                    navController.navigate("edit_teacher_exercise/$id/$encTitle/$encJson")
+                                }
+                            )
                         }
 
                         // ── SCREEN 11: CLASSROOM MANAGEMENT (teacher) ────────
@@ -241,12 +253,51 @@ class MainActivity : ComponentActivity() {
                                 onBack = { navController.popBackStack() },
                                 onNavigateToMonitoring = { classroomId ->
                                     navController.navigate("monitoring/$classroomId")
+                                },
+                                onNavigateToDetail = { classroomId ->
+                                    navController.navigate("classroom_detail/$classroomId")
                                 }
                             )
                         }
 
                         composable("create_teacher_exercise") {
-                            CreateTeacherExerciseScreen(onBack = { navController.popBackStack() })
+                            CreateTeacherExerciseScreen(
+                                onBack = { navController.popBackStack() },
+                                isExpert = false
+                            )
+                        }
+
+                        // Expert creates exercise — goes directly APPROVED
+                        composable("create_expert_exercise") {
+                            CreateTeacherExerciseScreen(
+                                onBack = { navController.popBackStack() },
+                                isExpert = true
+                            )
+                        }
+
+                        // Edit a teacher's existing exercise
+                        composable(
+                            route = "edit_teacher_exercise/{exerciseId}/{encTitle}/{encJson}",
+                            arguments = listOf(
+                                navArgument("exerciseId") { type = NavType.IntType },
+                                navArgument("encTitle") { type = NavType.StringType },
+                                navArgument("encJson") { type = NavType.StringType }
+                            )
+                        ) { backStackEntry ->
+                            val exId = backStackEntry.arguments?.getInt("exerciseId") ?: 0
+                            val title = java.net.URLDecoder.decode(
+                                backStackEntry.arguments?.getString("encTitle") ?: "", "UTF-8"
+                            )
+                            val contentJson = java.net.URLDecoder.decode(
+                                backStackEntry.arguments?.getString("encJson") ?: "", "UTF-8"
+                            )
+                            CreateTeacherExerciseScreen(
+                                onBack = { navController.popBackStack() },
+                                isExpert = false,
+                                exerciseIdToEdit = exId,
+                                existingTitle = title,
+                                existingContentJson = contentJson
+                            )
                         }
 
                         composable("create_test") {
@@ -258,9 +309,8 @@ class MainActivity : ComponentActivity() {
                             route = "monitoring/{classroomId}",
                             arguments = listOf(navArgument("classroomId") { type = NavType.IntType })
                         ) { backStackEntry ->
-                            val classroomId = backStackEntry.arguments?.getInt("classroomId") ?: 0
                             StudentMonitoringScreen(
-                                classroomId = classroomId,
+                                classroomId = backStackEntry.arguments?.getInt("classroomId") ?: 0,
                                 onBack = { navController.popBackStack() }
                             )
                         }
@@ -270,14 +320,12 @@ class MainActivity : ComponentActivity() {
                             route = "test_taking/{testId}",
                             arguments = listOf(navArgument("testId") { type = NavType.IntType })
                         ) { backStackEntry ->
-                            val testId = backStackEntry.arguments?.getInt("testId") ?: 0
                             TestTakingScreen(
-                                testId = testId,
+                                testId = backStackEntry.arguments?.getInt("testId") ?: 0,
                                 onBack = { navController.popBackStack() }
                             )
                         }
 
-                        // ── Join classroom ───────────────────────────────────
                         composable("join_classroom") {
                             JoinClassroomScreen(
                                 onBack = { navController.popBackStack() },
@@ -285,7 +333,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ── Learning path ────────────────────────────────────
                         composable("learning_path") {
                             LearningPathScreen(
                                 onBack = { navController.popBackStack() },
@@ -298,7 +345,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ── Student: my classrooms ───────────────────────────
                         composable("my_classrooms") {
                             MyClassroomsScreen(
                                 onBack = { navController.popBackStack() },
@@ -310,7 +356,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ── Student: flat homework list ──────────────────────
                         composable("student_homework") {
                             StudentHomeworkScreen(
                                 onBack = { navController.popBackStack() },
@@ -320,24 +365,20 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ── Student: view exercise result ────────────────────
                         composable(
                             route = "exercise_result/{exerciseId}",
                             arguments = listOf(navArgument("exerciseId") { type = NavType.IntType })
                         ) { backStackEntry ->
-                            val exerciseId = backStackEntry.arguments?.getInt("exerciseId") ?: 0
                             ExerciseResultScreen(
-                                exerciseId = exerciseId,
+                                exerciseId = backStackEntry.arguments?.getInt("exerciseId") ?: 0,
                                 onBack = { navController.popBackStack() }
                             )
                         }
 
-                        // ── Teacher: assign homework ─────────────────────────
                         composable("assign_homework") {
                             AssignHomeworkScreen(onBack = { navController.popBackStack() })
                         }
 
-                        // ── Teacher: homework list + review ──────────────────
                         composable("teacher_homework_list") {
                             TeacherHomeworkListScreen(
                                 onBack = { navController.popBackStack() },
@@ -350,7 +391,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ── Teacher: manage tests ────────────────────────────
                         composable("test_management") {
                             TestManagementScreen(
                                 onBack = { navController.popBackStack() },
@@ -361,20 +401,17 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ── Teacher: test results per student ────────────────
                         composable(
                             route = "test_results/{testId}",
                             arguments = listOf(navArgument("testId") { type = NavType.IntType })
                         ) { backStackEntry ->
-                            val testId = backStackEntry.arguments?.getInt("testId") ?: 0
                             TeacherTestResultsScreen(
-                                testId = testId,
+                                testId = backStackEntry.arguments?.getInt("testId") ?: 0,
                                 testTitle = "Резултати от теста",
                                 onBack = { navController.popBackStack() }
                             )
                         }
 
-                        // ── Student: open classroom detail ───────────────────
                         composable(
                             route = "classroom_detail/{classroomId}",
                             arguments = listOf(navArgument("classroomId") { type = NavType.IntType })
@@ -403,7 +440,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // ── Student: solve a homework exercise ───────────────
                         composable(
                             route = "homework_solve/{homeworkId}/{exerciseId}/{json}",
                             arguments = listOf(
@@ -412,21 +448,16 @@ class MainActivity : ComponentActivity() {
                                 navArgument("json") { type = NavType.StringType }
                             )
                         ) { backStackEntry ->
-                            val homeworkId = backStackEntry.arguments?.getInt("homeworkId") ?: 0
-                            val exerciseId = backStackEntry.arguments?.getInt("exerciseId") ?: 0
-                            val json = java.net.URLDecoder.decode(
-                                backStackEntry.arguments?.getString("json") ?: "", "UTF-8"
-                            )
-                            // FIX: removed onFinished — SolveExerciseScreen only has onBack
                             SolveExerciseScreen(
-                                exerciseId = exerciseId,
-                                exerciseJson = json,
-                                homeworkId = homeworkId,
+                                exerciseId = backStackEntry.arguments?.getInt("exerciseId") ?: 0,
+                                exerciseJson = java.net.URLDecoder.decode(
+                                    backStackEntry.arguments?.getString("json") ?: "", "UTF-8"
+                                ),
+                                homeworkId = backStackEntry.arguments?.getInt("homeworkId") ?: 0,
                                 onBack = { navController.popBackStack() }
                             )
                         }
 
-                        // ── Teacher: see homework submissions ────────────────
                         composable(
                             route = "homework_review/{homeworkId}/{encodedTitle}/{encodedJson}",
                             arguments = listOf(
@@ -435,17 +466,14 @@ class MainActivity : ComponentActivity() {
                                 navArgument("encodedJson") { type = NavType.StringType }
                             )
                         ) { backStackEntry ->
-                            val homeworkId = backStackEntry.arguments?.getInt("homeworkId") ?: 0
-                            val title = java.net.URLDecoder.decode(
-                                backStackEntry.arguments?.getString("encodedTitle") ?: "", "UTF-8"
-                            )
-                            val contentPrompt = java.net.URLDecoder.decode(
-                                backStackEntry.arguments?.getString("encodedJson") ?: "", "UTF-8"
-                            )
                             TeacherHomeworkReviewScreen(
-                                homeworkId = homeworkId,
-                                homeworkTitle = title,
-                                contentPrompt = contentPrompt.ifEmpty { null },
+                                homeworkId = backStackEntry.arguments?.getInt("homeworkId") ?: 0,
+                                homeworkTitle = java.net.URLDecoder.decode(
+                                    backStackEntry.arguments?.getString("encodedTitle") ?: "", "UTF-8"
+                                ),
+                                contentPrompt = java.net.URLDecoder.decode(
+                                    backStackEntry.arguments?.getString("encodedJson") ?: "", "UTF-8"
+                                ).ifEmpty { null },
                                 onBack = { navController.popBackStack() }
                             )
                         }
@@ -453,10 +481,9 @@ class MainActivity : ComponentActivity() {
                     } // end NavHost
                 }
             }
-        } // end setContent
-    } // end onCreate
+        }
+    }
 
-    // ── Session tracking ─────────────────────────────────────────
     override fun onStart() {
         super.onStart()
         val token = tokenManager.getToken() ?: return
@@ -483,13 +510,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ── SessionManager ─────────────────────────────────────────────
-class SessionManager(private val context: Context) {
-
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences("session_prefs", Context.MODE_PRIVATE)
-
-    fun saveSessionId(sessionId: Int) { prefs.edit { putInt("active_session_id", sessionId) } }
+class SessionManager(context: Context) {
+    private val prefs = context.getSharedPreferences("session_prefs", Context.MODE_PRIVATE)
+    fun saveSessionId(id: Int) { prefs.edit { putInt("active_session_id", id) } }
     fun getSessionId(): Int = prefs.getInt("active_session_id", -1)
     fun clearSession() { prefs.edit { remove("active_session_id") } }
 }

@@ -1,9 +1,7 @@
 package com.viktor.englishapp.ui
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -156,8 +153,7 @@ fun LearningPathScreen(
     LaunchedEffect(Unit) { viewModel.load(tokenManager) }
 
     // XP progress: each level needs 1000 XP (adjust as needed)
-    val xpForLevel = 1000
-    val xpProgress = (viewModel.totalXp % xpForLevel).toFloat() / xpForLevel
+    val xpProgress = (viewModel.totalXp % 1000).toFloat() / 1000
 
     Scaffold(
         topBar = {
@@ -194,12 +190,12 @@ fun LearningPathScreen(
                 ) {
 
                     // ── Header card ──────────────────────────────
-                    PathHeader(
+    PathHeader(
                         username = viewModel.username,
                         level = viewModel.englishLevel,
                         totalXp = viewModel.totalXp,
                         xpProgress = xpProgress,
-                        xpForLevel = xpForLevel
+                        xpForLevel = 1000
                     )
 
                     Spacer(Modifier.height(24.dp))
@@ -346,7 +342,6 @@ private fun PathTrack(
 ) {
     val nodeSize = 72.dp
     val rowHeight = 120.dp
-    val screenWidth = 360.dp  // approximate phone width
 
     Box(
         modifier = Modifier

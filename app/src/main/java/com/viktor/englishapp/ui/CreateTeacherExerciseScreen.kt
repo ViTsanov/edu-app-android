@@ -51,7 +51,28 @@ class CreateTeacherExerciseViewModel : ViewModel() {
         }
     }
 
-    fun saveExercise(tokenManager: TokenManager, onSuccess: () -> Unit) {
+    // Pre-fill form when editing an existing exercise
+    fun prefill(existingTitle: String, existingContentJson: String) {
+        title = existingTitle
+        try {
+            val content = Gson().fromJson(existingContentJson, ExerciseContent::class.java)
+            instructions = content.instructions ?: ""
+            isSpeaking = content.is_speaking
+            questions.clear()
+            questions.addAll(content.content ?: listOf(""))
+            answers.clear()
+            answers.addAll(content.correct_answers ?: List(questions.size) { "" })
+            // pad answers to match questions size
+            while (answers.size < questions.size) answers.add("")
+        } catch (_: Exception) { }
+    }
+
+    fun saveExercise(
+        tokenManager: TokenManager,
+        isExpert: Boolean,
+        exerciseIdToEdit: Int?,
+        onSuccess: () -> Unit
+    ) {
         if (title.isBlank()) {
             errorMessage = "Моля, въведете заглавие."
             return
@@ -73,18 +94,41 @@ class CreateTeacherExerciseViewModel : ViewModel() {
             correct_answers = if (isSpeaking) emptyList() else answers.toList()
         )
         val contentJson = Gson().toJson(content)
+        val body: Map<String, Any> = mapOf(
+            "title" to title,
+            "content_prompt" to contentJson
+        )
 
         viewModelScope.launch {
             try {
                 val token = tokenManager.getToken() ?: throw Exception("Липсва токен.")
-                RetrofitClient.instance.saveTeacherExercise(
-                    token = "Bearer $token",
-                    body = mapOf(
-                        "title" to title,
-                        "content_prompt" to contentJson
-                    )
-                )
-                successMessage = "Упражнението е запазено в библиотеката!"
+                when {
+                    exerciseIdToEdit != null -> {
+                        // Editing existing teacher exercise
+                        RetrofitClient.instance.updateTeacherExercise(
+                            exerciseId = exerciseIdToEdit,
+                            token = "Bearer $token",
+                            body = body
+                        )
+                        successMessage = "Упражнението е обновено!"
+                    }
+                    isExpert -> {
+                        // Expert: goes directly APPROVED in main Exercise table
+                        RetrofitClient.instance.createExerciseAsExpert(
+                            token = "Bearer $token",
+                            body = body
+                        )
+                        successMessage = "Упражнението е създадено и веднага активно!"
+                    }
+                    else -> {
+                        // Teacher: saves to their private library
+                        RetrofitClient.instance.saveTeacherExercise(
+                            token = "Bearer $token",
+                            body = body
+                        )
+                        successMessage = "Упражнението е запазено в библиотеката!"
+                    }
+                }
                 onSuccess()
             } catch (e: Exception) {
                 errorMessage = "Грешка: ${e.message}"
@@ -103,15 +147,34 @@ class CreateTeacherExerciseViewModel : ViewModel() {
 @Composable
 fun CreateTeacherExerciseScreen(
     onBack: () -> Unit,
+    isExpert: Boolean = false,
+    exerciseIdToEdit: Int? = null,
+    existingTitle: String? = null,
+    existingContentJson: String? = null,
     viewModel: CreateTeacherExerciseViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
 
+    // Pre-fill when editing
+    LaunchedEffect(exerciseIdToEdit) {
+        if (exerciseIdToEdit != null && existingTitle != null && existingContentJson != null) {
+            viewModel.prefill(existingTitle, existingContentJson)
+        }
+    }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Ново упражнение") },
+    topBar = {
+    TopAppBar(
+    title = {
+                    Text(
+                        when {
+                            exerciseIdToEdit != null -> "Редактирай упражнение"
+                            isExpert -> "Ново упражнение (Експерт)"
+                            else -> "Ново упражнение"
+                        }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад")
@@ -272,7 +335,12 @@ fun CreateTeacherExerciseScreen(
             // ── Save button ──────────────────────────────────────
             Button(
                 onClick = {
-                    viewModel.saveExercise(tokenManager = tokenManager, onSuccess = onBack)
+                    viewModel.saveExercise(
+                        tokenManager = tokenManager,
+                        isExpert = isExpert,
+                        exerciseIdToEdit = exerciseIdToEdit,
+                        onSuccess = onBack
+                    )
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = !viewModel.isSaving
@@ -283,7 +351,14 @@ fun CreateTeacherExerciseScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Text("ЗАПАЗИ В БИБЛИОТЕКАТА", fontWeight = FontWeight.Bold)
+                    Text(
+                        when {
+                            exerciseIdToEdit != null -> "ЗАПАЗИ ПРОМЕНИТЕ"
+                            isExpert -> "ПУБЛИКУВАЙ УПРАЖНЕНИЕТО"
+                            else -> "ЗАПАЗИ В БИБЛИОТЕКАТА"
+                        },
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 

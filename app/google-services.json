@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "910178375539",
+    "project_id": "english-app-4ab7d",
+    "storage_bucket": "english-app-4ab7d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:910178375539:android:654ee2ed6e0151f1331706",
+        "android_client_info": {
+          "package_name": "com.viktor.englishapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzqoNZSC4UQLaskVOXygV75X53V-UdLI0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

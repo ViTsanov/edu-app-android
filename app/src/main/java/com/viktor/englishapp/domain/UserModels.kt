@@ -75,8 +75,7 @@ data class UserCreate(
     val email: String,
     val username: String,
     val password: String,
-    val full_name: String = "", // Изпращаме го празно, ако не го ползваме активно
-    val role_id: Int = 1 // 1 означава Ученик по подразбиране
+    val role_id: Int = 1
 )
 
 data class TextSubmissionRequest(

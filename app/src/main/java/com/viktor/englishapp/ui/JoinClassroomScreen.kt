@@ -1,6 +1,5 @@
 package com.viktor.englishapp.ui
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,7 +38,6 @@ class JoinClassroomViewModel : ViewModel() {
     var successMessage by mutableStateOf("")
 
     fun onCodeChange(new: String) {
-        // Only uppercase letters and digits, max 6 chars
         accessCode = new.uppercase().filter { it.isLetterOrDigit() }.take(6)
         errorMessage = ""
     }

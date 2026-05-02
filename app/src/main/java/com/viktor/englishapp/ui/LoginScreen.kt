@@ -72,7 +72,7 @@ fun LoginScreen(
         // Login button — delegates entirely to ViewModel
         Button(
             onClick = {
-                viewModel.login(tokenManager = tokenManager, onSuccess = onLoginSuccess)
+                viewModel.login(tokenManager = tokenManager, context = context, onSuccess = onLoginSuccess)
             },
             modifier = Modifier
                 .fillMaxWidth()

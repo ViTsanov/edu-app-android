@@ -5,7 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,18 +24,22 @@ import com.viktor.englishapp.domain.ExerciseContent
 import com.viktor.englishapp.domain.ExerciseResponse
 import kotlinx.coroutines.launch
 
-// 1. ViewModel, който се грижи за тегленето и изтриването на упражненията
+// ─────────────────────────────────────────────────────────────────
+// ViewModel
+// ─────────────────────────────────────────────────────────────────
+
 class ExpertActiveViewModel : ViewModel() {
     var exercises by mutableStateOf<List<ExerciseResponse>>(emptyList())
+    var teacherExercises by mutableStateOf<List<Map<String, Any>>>(emptyList())
     var isLoading by mutableStateOf(false)
-    var errorMessage by mutableStateOf("")
+    var errorMessage by mutableStateOf("")          // AI tab errors only
+    var teacherLoadError by mutableStateOf("")       // My exercises tab errors only
+    var isTeacherRole by mutableStateOf(true)        // false = expert, hide Tab 1
 
-    // 🟢 ДОБАВЯМЕ token КАТО ПАРАМЕТЪР
     fun loadActiveExercises(token: String) {
         viewModelScope.launch {
             isLoading = true
             try {
-                // 🟢 ПОДАВАМЕ ТОКЕНА КЪМ ЗАЯВКАТА
                 exercises = RetrofitClient.instance.getExercises("Bearer $token")
                 errorMessage = ""
             } catch (e: Exception) {
@@ -45,84 +50,303 @@ class ExpertActiveViewModel : ViewModel() {
         }
     }
 
+    fun loadTeacherExercises(token: String) {
+        viewModelScope.launch {
+            try {
+                teacherExercises = RetrofitClient.instance.getTeacherExercises("Bearer $token")
+                isTeacherRole = true
+                teacherLoadError = ""
+            } catch (e: Exception) {
+                // 403 = user is an Expert, not a Teacher — hide Tab 1 silently
+                if (e.message?.contains("403") == true || e.message?.contains("forbidden", ignoreCase = true) == true) {
+                    isTeacherRole = false
+                } else {
+                    teacherLoadError = "Грешка: ${e.message}"
+                }
+            }
+        }
+    }
+
     fun deleteExercise(token: String, id: Int) {
         viewModelScope.launch {
             try {
-                // Използваме ендпойнта за отказ/изтриване
                 RetrofitClient.instance.rejectExercise(id, "Bearer $token")
-                exercises = exercises.filter { it.id != id } // Премахваме го от списъка веднага
+                exercises = exercises.filter { it.id != id }
             } catch (e: Exception) {
                 errorMessage = "Грешка при изтриване: ${e.message}"
             }
         }
     }
+
+    fun deleteTeacherExercise(token: String, id: Int) {
+        viewModelScope.launch {
+            try {
+                RetrofitClient.instance.deleteTeacherExercise(id, "Bearer $token")
+                teacherExercises = teacherExercises.filter {
+                    (it["id"] as? Double)?.toInt() != id
+                }
+            } catch (e: Exception) {
+                teacherLoadError = "Грешка при изтриване: ${e.message}"
+            }
+        }
+    }
 }
 
-// 2. Самият екран
+// ─────────────────────────────────────────────────────────────────
+// Screen
+// ─────────────────────────────────────────────────────────────────
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpertActiveExercisesScreen(
     onBack: () -> Unit,
+    onEditTeacherExercise: ((Int, String, String) -> Unit)? = null,
     viewModel: ExpertActiveViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
     val token = tokenManager.getToken()
+    var selectedTab by remember { mutableStateOf(0) }
+    // Show Tab 1 only for teachers (experts get 403 — detected in ViewModel)
+    val tabs = if (viewModel.isTeacherRole)
+        listOf("📋 Одобрени упражнения", "📚 Моите")
+    else
+        listOf("📍 Одобрени упражнения")
 
     LaunchedEffect(Unit) {
-        // 🟢 ПРОВЕРЯВАМЕ ДАЛИ ИМА ТОКЕН И ГО ПОДАВАМЕ
         if (token != null) {
             viewModel.loadActiveExercises(token)
+            viewModel.loadTeacherExercises(token)
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Всички Активни Упражнения") },
+                title = { Text("Активни Упражнения") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад")
                     }
                 }
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (viewModel.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (viewModel.errorMessage.isNotEmpty()) {
-                Text(
-                    text = viewModel.errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.align(Alignment.Center).padding(16.dp)
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            TabRow(selectedTabIndex = selectedTab) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title, fontWeight = FontWeight.Medium) }
+                    )
+                }
+            }
+
+            when (selectedTab) {
+                0 -> AiExercisesTab(
+                    viewModel = viewModel,
+                    token = token
                 )
-            } else if (viewModel.exercises.isEmpty()) {
-                Text(
-                    text = "Няма активни упражнения в системата.",
-                    modifier = Modifier.align(Alignment.Center)
+                1 -> if (viewModel.isTeacherRole) MyExercisesTab(
+                    viewModel = viewModel,
+                    token = token,
+                    onEdit = onEditTeacherExercise
                 )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(viewModel.exercises) { exercise ->
-                        ActiveExerciseCard(
-                            exercise = exercise,
-                            onDelete = {
-                                if (token != null) viewModel.deleteExercise(token, exercise.id)
-                            }
-                        )
-                    }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Tab 0: AI exercises
+// ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun AiExercisesTab(viewModel: ExpertActiveViewModel, token: String?) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        when {
+            viewModel.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            viewModel.errorMessage.isNotEmpty() -> Text(
+                viewModel.errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.align(Alignment.Center).padding(16.dp)
+            )
+            viewModel.exercises.isEmpty() -> Text(
+                "Няма активни упражнения в системата.",
+                modifier = Modifier.align(Alignment.Center)
+            )
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(viewModel.exercises) { exercise ->
+                    ActiveExerciseCard(
+                        exercise = exercise,
+                        onDelete = { if (token != null) viewModel.deleteExercise(token, exercise.id) }
+                    )
                 }
             }
         }
     }
 }
 
-// 3. Карта за всяко упражнение
+// ─────────────────────────────────────────────────────────────────
+// Tab 1: Teacher's own exercises
+// ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun MyExercisesTab(
+    viewModel: ExpertActiveViewModel,
+    token: String?,
+    onEdit: ((Int, String, String) -> Unit)?
+) {
+    if (viewModel.teacherLoadError.isNotEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(viewModel.teacherLoadError, color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp))
+        }
+        return
+    }
+    if (viewModel.teacherExercises.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.AutoMirrored.Filled.MenuBook, null,
+                    modifier = Modifier.size(48.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                )
+                Spacer(Modifier.height(12.dp))
+                Text("Нямате създадени упражнения още.", color = MaterialTheme.colorScheme.secondary)
+            }
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(viewModel.teacherExercises) { ex ->
+            val id = (ex["id"] as? Double)?.toInt() ?: 0
+            val title = ex["title"] as? String ?: ""
+            val contentJson = ex["content_prompt"] as? String ?: ""
+            val createdAt = (ex["created_at"] as? String)?.take(10) ?: ""
+
+            TeacherExerciseCard(
+                id = id,
+                title = title,
+                contentJson = contentJson,
+                createdAt = createdAt,
+                onEdit = {
+                    onEdit?.invoke(id, title, contentJson)
+                },
+                onDelete = {
+                    if (token != null) viewModel.deleteTeacherExercise(token, id)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TeacherExerciseCard(
+    id: Int,
+    title: String,
+    contentJson: String,
+    createdAt: String,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    val gson = remember { Gson() }
+    val parsed = remember(contentJson) {
+        try { gson.fromJson(contentJson, ExerciseContent::class.java) } catch (_: Exception) { null }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Изтриване на упражнение") },
+            text = { Text("Сигурен ли си, че искаш да изтриеш «$title»? Това действие не може да се отмени.") },
+            confirmButton = {
+                TextButton(onClick = { showDeleteDialog = false; onDelete() }) {
+                    Text("Изтрий", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Откажи") }
+            }
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Създадено: $createdAt • ID #$id",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+                // Edit button
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, "Редактирай", tint = MaterialTheme.colorScheme.primary)
+                }
+                // Delete button
+                IconButton(onClick = { showDeleteDialog = true }) {
+                    Icon(Icons.Default.Delete, "Изтрий", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (expanded) "Скрий съдържанието" else "Преглед на съдържанието")
+            }
+
+            if (expanded && parsed != null) {
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(10.dp))
+                Text("Инструкции:", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text(parsed.instructions ?: "Няма", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (parsed.is_speaking) "Изречения:" else "Въпроси:",
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary
+                )
+                parsed.content?.forEachIndexed { i, q ->
+                    Text("${i + 1}. $q", style = MaterialTheme.typography.bodySmall)
+                    if (!parsed.is_speaking) {
+                        val ans = parsed.correct_answers?.getOrNull(i) ?: ""
+                        if (ans.isNotBlank()) {
+                            Text("→ $ans", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// AI exercise card (unchanged)
+// ─────────────────────────────────────────────────────────────────
+
 @Composable
 fun ActiveExerciseCard(exercise: ExerciseResponse, onDelete: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
