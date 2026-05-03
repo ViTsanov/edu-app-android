@@ -12,7 +12,6 @@ data class UserProfile(
     val email: String,
     val role_id: Int,
     val total_xp: Int,
-    // 🟢 НОВИТЕ ПОЛЕТА ОТ БЕКЕНДА (Слагаме им default стойности, за да не гърми, ако липсват)
     val english_level: String? = "A1",
     val profile_picture: String? = null,
     val teacher_verification_status: String? = "none"
@@ -22,8 +21,8 @@ data class UserProfile(
 data class ExerciseResponse(
     val id: Int,
     val title: String,
-    val content_prompt: String, // Променено от 'content', за да съвпада с FastAPI
-    val status: String // Променено от 'cefr_level' (в базата ползваме PENDING/APPROVED)
+    val content_prompt: String,
+    val status: String
 )
 
 data class ExerciseGenerationResponse(
@@ -32,7 +31,6 @@ data class ExerciseGenerationResponse(
 )
 
 // --- AI AUDIO EVALUATION ---
-// Тези класове "хващат" JSON-а, който връща новият ни аудио ендпойнт
 data class AudioEvaluationData(
     val grammar_score: Int,
     val fluency_score: Int,
@@ -53,7 +51,7 @@ data class ExerciseContent(
     val title: String?,
     val instructions: String?,
     val is_speaking: Boolean = false,
-    val content: List<String>?, // 🟢 НОВО: Вече очакваме просто списък с текстове (изреченията)
+    val content: List<String>?,
     val correct_answers: List<String>?
 )
 
@@ -84,14 +82,13 @@ data class TextSubmissionRequest(
     val user_answers: List<String>
 )
 
-// Този клас описва какво ни връща AI за текстовото упражнение
 data class EvaluationResult(
     val grammar_score: Int,
     val strengths: String?,
     val weaknesses: String?,
     val explanation: String?,
-    val is_correct_array: List<Boolean>?, // Списък с true/false за всеки въпрос
-    val xp_earned: Int?                   // Спечелените точки
+    val is_correct_array: List<Boolean>?,
+    val xp_earned: Int?
 )
 
 data class EvaluationResponse(
@@ -103,7 +100,7 @@ data class StudentPathItem(
     val id: Int,
     val title: String,
     val content_prompt: String,
-    val status: String, // "AVAILABLE", "COMPLETED", "RETRY"
+    val status: String,
     val best_score: Int?
 )
 

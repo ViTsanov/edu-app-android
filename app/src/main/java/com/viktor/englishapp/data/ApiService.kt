@@ -48,7 +48,6 @@ interface ApiService {
         @Header("Authorization") token: String
     ): ApproveResponse
 
-    // @Multipart — изпраща бинарен файл вместо JSON (нужно за аудио)
     @Multipart
     @POST("exercises/{exercise_id}/submit-audio")
     suspend fun submitAudioExercise(

@@ -76,8 +76,6 @@ class MainActivity : ComponentActivity() {
                         composable("login") {
                             LoginScreen(
                                 onLoginSuccess = {
-                                    // Start session immediately after login
-                                    // onStart() cannot do this because token doesn't exist yet at that point
                                     val token = tokenManager.getToken()
                                     if (token != null) {
                                         lifecycleScope.launch {
@@ -128,10 +126,8 @@ class MainActivity : ComponentActivity() {
                                 onJoinClassroom = { navController.navigate("join_classroom") },
                                 onGoToMyClassrooms = { navController.navigate("my_classrooms") },
                                 onGoToHomework = { navController.navigate("student_homework") },
-                                // FIX: was nested lambda → nested lambda
                                 onGoToAssignHomework = { navController.navigate("teacher_homework_list") },
                                 onGoToTestManagement = { navController.navigate("test_management") },
-                                // NEW: AI generator for experts
                                 onGoToExpertPanel = { navController.navigate("expert_panel") }
                             )
                         }
@@ -341,6 +337,9 @@ class MainActivity : ComponentActivity() {
                                         exercise.content_prompt, "UTF-8"
                                     )
                                     navController.navigate("solve_exercise/${exercise.id}/$encodedJson")
+                                },
+                                onViewResult = { exerciseId ->
+                                    navController.navigate("exercise_result/$exerciseId")
                                 }
                             )
                         }
@@ -359,8 +358,8 @@ class MainActivity : ComponentActivity() {
                         composable("student_homework") {
                             StudentHomeworkScreen(
                                 onBack = { navController.popBackStack() },
-                                onStartExercise = { exerciseId, encodedJson ->
-                                    navController.navigate("solve_exercise/$exerciseId/$encodedJson")
+                                onStartExercise = { homeworkId, exerciseId, encodedJson ->
+                                    navController.navigate("homework_solve/$homeworkId/$exerciseId/$encodedJson")
                                 }
                             )
                         }
@@ -490,7 +489,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 val response = RetrofitClient.instance.startSession("Bearer $token")
-                val sessionId = (response["session_id"] as? Double)?.toInt() ?: return@launch
+                val sessionId = response["session_id"] as? Int ?: return@launch
                 sessionManager.saveSessionId(sessionId)
             } catch (_: Exception) {}
         }

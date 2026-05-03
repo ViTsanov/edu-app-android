@@ -144,6 +144,7 @@ class LearningPathViewModel : ViewModel() {
 fun LearningPathScreen(
     onBack: () -> Unit,
     onStartExercise: (StudentPathItem) -> Unit,
+    onViewResult: (Int) -> Unit,   // ← нов callback за завършени упражнения
     viewModel: LearningPathViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -152,8 +153,14 @@ fun LearningPathScreen(
 
     LaunchedEffect(Unit) { viewModel.load(tokenManager) }
 
-    // XP progress: each level needs 1000 XP (adjust as needed)
-    val xpProgress = (viewModel.totalXp % 1000).toFloat() / 1000
+    // XP progress: calculate based on actual level thresholds
+    val xpProgress = when (viewModel.englishLevel) {
+        "A1" -> viewModel.totalXp.toFloat() / 300f
+        "A2" -> (viewModel.totalXp - 300).toFloat() / 400f   // A2: 300→700
+        "B1" -> (viewModel.totalXp - 700).toFloat() / 500f   // B1: 700→1200
+        "B2" -> (viewModel.totalXp - 1200).toFloat() / 800f  // B2: 1200→2000
+        else -> 1f  // C1 = max
+    }.coerceIn(0f, 1f)
 
     Scaffold(
         topBar = {
@@ -190,12 +197,11 @@ fun LearningPathScreen(
                 ) {
 
                     // ── Header card ──────────────────────────────
-    PathHeader(
+                    PathHeader(
                         username = viewModel.username,
                         level = viewModel.englishLevel,
                         totalXp = viewModel.totalXp,
-                        xpProgress = xpProgress,
-                        xpForLevel = 1000
+                        xpProgress = xpProgress
                     )
 
                     Spacer(Modifier.height(24.dp))
@@ -244,7 +250,11 @@ fun LearningPathScreen(
                                     .offset(y = detailOffset),
                                 onStart = {
                                     viewModel.selectedNode = null
-                                    onStartExercise(node.item)
+                                    if (node.item.status == "COMPLETED") {
+                                        onViewResult(node.item.id)
+                                    } else {
+                                        onStartExercise(node.item)
+                                    }
                                 },
                                 onDismiss = { viewModel.selectedNode = null }
                             )
@@ -270,8 +280,7 @@ private fun PathHeader(
     username: String,
     level: String,
     totalXp: Int,
-    xpProgress: Float,
-    xpForLevel: Int
+    xpProgress: Float
 ) {
     val animatedXp by animateFloatAsState(
         targetValue = xpProgress,
@@ -320,11 +329,19 @@ private fun PathHeader(
                     color = Color(0xFFF59E0B),
                     trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f)
                 )
-                Text(
-                    "до ${level.dropLast(1)}${level.last().plus(1)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                )
+                val nextLevel = when (level) {
+                    "A1" -> "A2"; "A2" -> "B1"; "B1" -> "B2"; "B2" -> "C1"; else -> ""
+                }
+                val xpNeeded = when (level) {
+                    "A1" -> 300; "A2" -> 700; "B1" -> 1200; "B2" -> 2000; else -> totalXp
+                }
+                if (nextLevel.isNotEmpty()) {
+                    Text(
+                        "до $nextLevel: ${xpNeeded - totalXp} XP",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                    )
+                }
             }
         }
     }

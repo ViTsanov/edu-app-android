@@ -413,7 +413,7 @@ fun ActiveExerciseCard(exercise: ExerciseResponse, onDelete: () -> Unit) {
                         Text("Отговор: ${parsedExercise.correct_answers[index]}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
-            } else if (expanded && parsedExercise == null) {
+            } else if (expanded) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Грешка при разчитане на съдържанието.", color = MaterialTheme.colorScheme.error)
             }

@@ -90,7 +90,7 @@ class StudentHomeworkViewModel : ViewModel() {
 @Composable
 fun StudentHomeworkScreen(
     onBack: () -> Unit,
-    onStartExercise: (Int, String) -> Unit,
+    onStartExercise: (homeworkId: Int, exerciseId: Int, encodedJson: String) -> Unit,
     viewModel: StudentHomeworkViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -197,7 +197,7 @@ fun StudentHomeworkScreen(
                                 val json = hw.contentPrompt ?: return@StudentHwCard
                                 val encoded = java.net.URLEncoder.encode(json, "UTF-8")
                                 val exId = hw.exerciseId ?: hw.teacherExerciseId ?: 0
-                                onStartExercise(exId, encoded)
+                                onStartExercise(hw.id, exId, encoded)
                             })
                         }
                     }
@@ -209,7 +209,7 @@ fun StudentHomeworkScreen(
                                 val json = hw.contentPrompt ?: return@StudentHwCard
                                 val encoded = java.net.URLEncoder.encode(json, "UTF-8")
                                 val exId = hw.exerciseId ?: hw.teacherExerciseId ?: 0
-                                onStartExercise(exId, encoded)
+                                onStartExercise(hw.id, exId, encoded)
                             })
                         }
                     }

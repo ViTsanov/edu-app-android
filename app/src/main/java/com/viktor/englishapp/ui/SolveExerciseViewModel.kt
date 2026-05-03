@@ -98,7 +98,6 @@ class SolveExerciseViewModel : ViewModel() {
                         token = "Bearer $token",
                         file = body
                     )
-                    // For homework audio we show a simple success — no live result needed
                     errorMessage = "✓ Аудиото е предадено успешно!"
                 } else {
                     // ── Regular audio path ────────────────────────
@@ -139,7 +138,6 @@ class SolveExerciseViewModel : ViewModel() {
                             "user_answers" to userAnswers
                         )
                     )
-                    // Backend returns the same shape under "data"
                     @Suppress("UNCHECKED_CAST")
                     val data = response["data"] as? Map<String, Any>
                     if (data != null) {

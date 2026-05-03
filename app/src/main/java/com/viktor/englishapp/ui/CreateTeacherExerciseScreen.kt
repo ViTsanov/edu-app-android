@@ -32,8 +32,8 @@ class CreateTeacherExerciseViewModel : ViewModel() {
     var title by mutableStateOf("")
     var instructions by mutableStateOf("")
     var isSpeaking by mutableStateOf(false)
-    val questions = mutableStateListOf("") // start with one empty question
-    val answers = mutableStateListOf("")   // matching answers
+    val questions = mutableStateListOf("")
+    val answers = mutableStateListOf("")
 
     var isSaving by mutableStateOf(false)
     var successMessage by mutableStateOf("")
@@ -51,7 +51,6 @@ class CreateTeacherExerciseViewModel : ViewModel() {
         }
     }
 
-    // Pre-fill form when editing an existing exercise
     fun prefill(existingTitle: String, existingContentJson: String) {
         title = existingTitle
         try {
@@ -104,7 +103,6 @@ class CreateTeacherExerciseViewModel : ViewModel() {
                 val token = tokenManager.getToken() ?: throw Exception("Липсва токен.")
                 when {
                     exerciseIdToEdit != null -> {
-                        // Editing existing teacher exercise
                         RetrofitClient.instance.updateTeacherExercise(
                             exerciseId = exerciseIdToEdit,
                             token = "Bearer $token",
@@ -113,7 +111,6 @@ class CreateTeacherExerciseViewModel : ViewModel() {
                         successMessage = "Упражнението е обновено!"
                     }
                     isExpert -> {
-                        // Expert: goes directly APPROVED in main Exercise table
                         RetrofitClient.instance.createExerciseAsExpert(
                             token = "Bearer $token",
                             body = body
@@ -156,7 +153,6 @@ fun CreateTeacherExerciseScreen(
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
 
-    // Pre-fill when editing
     LaunchedEffect(exerciseIdToEdit) {
         if (exerciseIdToEdit != null && existingTitle != null && existingContentJson != null) {
             viewModel.prefill(existingTitle, existingContentJson)

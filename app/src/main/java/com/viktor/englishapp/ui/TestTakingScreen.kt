@@ -112,12 +112,21 @@ class TestTakingViewModel : ViewModel() {
             try {
                 val test = testInfo ?: return@launch
                 val answers = test.exercises.mapIndexed { _, ex ->
-                    val answers = userAnswers[ex.testExerciseId] ?: emptyList()
+                    val studentAnswers = userAnswers[ex.testExerciseId] ?: emptyList()
+                    // Parse the exercise content to get real questions and correct answers
+                    val parsed = try {
+                        com.google.gson.Gson().fromJson(
+                            ex.contentPrompt,
+                            com.viktor.englishapp.domain.ExerciseContent::class.java
+                        )
+                    } catch (_: Exception) { null }
+                    val realQuestions = parsed?.content ?: listOf(ex.title)
+                    val realExpected = parsed?.correct_answers ?: emptyList()
                     mapOf(
                         "test_exercise_id" to ex.testExerciseId,
-                        "questions" to listOf(ex.title),
-                        "expected_answers" to listOf(""),
-                        "user_answers" to answers
+                        "questions" to realQuestions,
+                        "expected_answers" to realExpected,
+                        "user_answers" to studentAnswers
                     )
                 }
                 result = RetrofitClient.instance.submitTest(

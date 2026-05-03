@@ -143,7 +143,6 @@ fun ClassroomDetailScreen(
 ) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
-    // Read role from shared prefs — teachers (role 2,4) should NOT see solve button
     val roleId = remember {
         context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
             .getInt("role_id", 1)
@@ -436,7 +435,7 @@ private fun StudentHwDetailCard(
                 }
             }
 
-            // Action button — shown ONLY for students
+            // Action button
             if (!isTeacher) {
                 if (!hw.submitted && hw.contentPrompt != null) {
                     Spacer(Modifier.height(10.dp))
@@ -467,7 +466,6 @@ private fun StudentHwDetailCard(
                     }
                 }
             } else {
-                // Teacher view — show submission status only, no action button
                 if (hw.submitted) {
                     Spacer(Modifier.height(6.dp))
                     Text(

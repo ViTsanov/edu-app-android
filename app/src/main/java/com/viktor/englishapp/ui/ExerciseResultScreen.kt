@@ -283,8 +283,7 @@ private fun ResultContent(result: ExerciseResultData, modifier: Modifier) {
                     question = question,
                     userAnswer = userAnswer,
                     correctAnswer = correctAnswer,
-                    isCorrect = isCorrect,
-                    isSpeaking = isSpeaking
+                    isCorrect = isCorrect
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -363,8 +362,7 @@ private fun QuestionReviewCard(
     question: String,
     userAnswer: String,
     correctAnswer: String,
-    isCorrect: Boolean?,  // null = speaking (no right/wrong)
-    isSpeaking: Boolean
+    isCorrect: Boolean?
 ) {
     val bgColor = when (isCorrect) {
         true -> Color(0xFFF0FDF4)
